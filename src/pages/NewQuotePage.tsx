@@ -1,7 +1,7 @@
 // src/pages/NewQuotePage.tsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "convex/react";
@@ -12,83 +12,94 @@ import { FileDropzone } from "components/quotes/FileDropzone";
 import { cn } from "lib/utils";
 import { convex } from "lib/convex";
 
-// ─── Zod schema ────────────────────────────────────────────────────────────
+// ─── Schema ────────────────────────────────────────────────────────────────────
 const schema = z.object({
-  // Step 1
-  signType:     z.enum(["logo_image", "text_only"]),
-  neonMaterial: z.enum(["led_flex_neon", "led_flex_neon_uv", "channel_letter"]),
-  signText:     z.string().optional(),
-
-  // Step 2
-  installation: z.enum(["indoors", "outdoors"]),
-  backShape:    z.enum(["cut_to_shape", "cut_to_circle", "cut_to_square_rect", "cut_to_lettering"]),
-  maxSize:      z.string().min(1, "Required"),
-  width:        z.string().optional(),
-  length:       z.string().optional(),
-
-  // Step 3
-  backColor:    z.string().min(1, "Required"),
-  signColors:   z.string().min(1, "Describe the sign colors"),
-  quantity:     z.coerce.number().int().min(1).default(1),
-
-  // Step 4
-  clientFirstName: z.string().optional(),
-  clientLastName:  z.string().optional(),
-  clientEmail:     z.string().email().optional().or(z.literal("")),
-  clientPhone:     z.string().optional(),
+  // Step 1 — Project
+  signType:        z.enum(["Logo/Image", "Text Only"]),
+  useType:         z.string().min(1, "Required"),
+  hasImage:        z.boolean(),
+  estimatedBudget: z.string().optional(),
+  signText:        z.string().optional(),
+  industry:        z.string().optional(),
   clientCompany:   z.string().optional(),
-  additionalNotes: z.string().optional(),
-  rushOrder:       z.boolean().optional(),
-  rgbLighting:     z.boolean().optional(),
-  waterproofing:   z.boolean().optional(),
+
+  // Step 2 — Specs
+  installation:          z.string().min(1, "Required"),
+  knowMeasurements:      z.boolean().default(false),
+  maxSize:               z.string().min(1, "Required"),
+  width:                 z.string().optional(),
+  length:                z.string().optional(),
+  neonMaterial:          z.string().min(1, "Required"),
+  backColor:             z.string().min(1, "Required"),
+  backShape:             z.string().min(1, "Required"),
+  signColors:            z.array(z.string()).min(1, "Select at least one color"),
+  multiColorDescription: z.string().optional(),
+  fontChoice:            z.string().optional(),
+  isCustomFont:          z.boolean().default(false),
+  quantity:              z.coerce.number().int().min(1).default(1),
+  rushOrder:             z.boolean().default(false),
+  rgbLighting:           z.boolean().default(false),
+  additionalNotes:       z.string().optional(),
+
+  // Step 3 — End client (white-labelled)
+  isForClient:     z.boolean().default(false),
+  clientName:      z.string().optional(),
+  clientNotes:     z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
 
 const STEPS = [
-  { id: 1, label: "Sign type & design" },
-  { id: 2, label: "Size & shape" },
-  { id: 3, label: "Colors & finish" },
-  { id: 4, label: "Client & notes" },
+  { id: 1, label: "Project" },
+  { id: 2, label: "Specs" },
+  { id: 3, label: "Client" },
 ];
 
 const STEP_FIELDS: Record<number, (keyof FormData)[]> = {
-  1: ["signType", "neonMaterial"],
-  2: ["installation", "backShape", "maxSize"],
-  3: ["backColor", "signColors", "quantity"],
-  4: [],
+  1: ["signType", "useType", "hasImage"],
+  2: ["installation", "maxSize", "neonMaterial", "backColor", "backShape", "signColors"],
+  3: [],
 };
 
-// ─── Reusable field/radio helpers ──────────────────────────────────────────
-function RadioGroup<T extends string>({
-  options, value, onChange, cols = 2,
-}: {
-  options: { value: T; label: string; sub?: string }[];
-  value: T;
-  onChange: (v: T) => void;
-  cols?: number;
-}) {
-  return (
-    <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          className={cn(
-            "px-3 py-2.5 rounded-lg border text-[13px] font-medium text-left transition-all",
-            value === o.value
-              ? "border-nsd-purple bg-purple-50 text-nsd-purple"
-              : "border-gray-200 text-gray-600 hover:border-nsd-purple/40"
-          )}
-        >
-          {o.label}
-          {o.sub && <span className="block text-[11px] font-normal text-gray-400 mt-0.5">{o.sub}</span>}
-        </button>
-      ))}
-    </div>
-  );
-}
+const USE_TYPES = ["Business", "Personal", "Event", "Restaurant", "Retail", "Healthcare", "Hospitality", "Other"];
+const BUDGETS   = ["Under $500", "$500–$1,000", "$1,000–$2,000", "$2,000–$3,000", "$3,000+"];
+const SIZES     = ['12"', '18"', '24"', '30"', '36"', '48"', '60"', '72"', "Custom"];
+const FONTS     = ["Default", "Arial", "Script", "Block", "Cursive", "Serif", "Sans-Serif", "Custom"];
+
+const MATERIALS = [
+  { value: "LED Flex Neon",    sub: "Most popular" },
+  { value: "LED Flex Neon UV", sub: "UV reactive" },
+  { value: "Channel Letter",   sub: "3D letters" },
+];
+
+const BACK_COLORS = [
+  { value: "Transparent", color: "bg-gray-100 border-2 border-dashed border-gray-300" },
+  { value: "Black",       color: "bg-gray-900" },
+  { value: "White",       color: "bg-white border border-gray-200" },
+  { value: "Custom",      color: "bg-gradient-to-br from-purple-400 to-pink-400" },
+];
+
+const BACK_SHAPES = [
+  { value: "Cut to Shape",       icon: "✦" },
+  { value: "Cut to Circle",      icon: "●" },
+  { value: "Cut to Rectangle",   icon: "▬" },
+  { value: "Cut to Lettering",   icon: "A" },
+];
+
+const SIGN_COLORS = [
+  { label: "White",  bg: "bg-white border border-gray-200",  text: "text-gray-700" },
+  { label: "Red",    bg: "bg-red-500",   text: "text-white" },
+  { label: "Blue",   bg: "bg-blue-500",  text: "text-white" },
+  { label: "Green",  bg: "bg-green-500", text: "text-white" },
+  { label: "Yellow", bg: "bg-yellow-400",text: "text-gray-800" },
+  { label: "Orange", bg: "bg-orange-500",text: "text-white" },
+  { label: "Purple", bg: "bg-purple-500",text: "text-white" },
+  { label: "Pink",   bg: "bg-pink-500",  text: "text-white" },
+  { label: "Teal",   bg: "bg-teal-500",  text: "text-white" },
+];
+
+// ─── Reusable helpers ──────────────────────────────────────────────────────────
+const INPUT = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:border-nsd-purple bg-white";
 
 function Field({ label, error, children, required, hint }: {
   label: string; error?: string; children: React.ReactNode;
@@ -97,8 +108,9 @@ function Field({ label, error, children, required, hint }: {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[12px] font-medium text-gray-600">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
-        {hint && <span className="ml-1.5 text-[11px] font-normal text-gray-400">{hint}</span>}
+        {label}
+        {required && <span className="text-red-400 ml-0.5">*</span>}
+        {hint && <span className="ml-1.5 font-normal text-gray-400">{hint}</span>}
       </label>
       {children}
       {error && <p className="text-[11px] text-red-500">{error}</p>}
@@ -106,133 +118,130 @@ function Field({ label, error, children, required, hint }: {
   );
 }
 
-const INPUT = "w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-nsd-purple";
-
-// ─── Pricing helper — mirrors NSD pricing engine logic ─────────────────────
-function estimatePrice(data: Partial<FormData>, discountPct: number): { list: number; partner: number } {
-  // Simplified estimate shown to partner before NSD confirms final price.
-  // NSD admin will override with actual price from the pricing engine.
-  const sizeNum = parseFloat(data.maxSize ?? "24") || 24;
-  const base    = 80 + sizeNum * 4.5;
-  const matMult = data.neonMaterial === "channel_letter" ? 2.2
-                : data.neonMaterial === "led_flex_neon_uv" ? 1.35 : 1;
-  const qty     = data.quantity ?? 1;
-  const list    = Math.round(base * matMult * qty);
-  const partner = Math.round(list * (1 - discountPct / 100));
-  return { list, partner };
+function YesNo({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {[true, false].map((v) => (
+        <button key={String(v)} type="button" onClick={() => onChange(v)}
+          className={cn("py-2.5 rounded-lg border text-[13px] font-medium transition-all",
+            value === v
+              ? "bg-nsd-purple text-white border-nsd-purple"
+              : "border-gray-200 text-gray-600 hover:border-nsd-purple/40")}>
+          {v ? "Yes" : "No"}
+        </button>
+      ))}
+    </div>
+  );
 }
 
-// ─── Main component ────────────────────────────────────────────────────────
+// ─── Main component ────────────────────────────────────────────────────────────
 export function NewQuotePage() {
-  const { partner } = useAuth();
-  const navigate    = useNavigate();
+  const { partner }   = useAuth();
+  const navigate      = useNavigate();
   const [step, setStep]         = useState(1);
   const [files, setFiles]       = useState<{ file: File; preview?: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const submitQuote  = useMutation(api.partnerQuotes.submitPartnerQuote);
+  const submitQuote    = useMutation(api.partnerQuotes.submitPartnerQuote);
   const addDesignFiles = useMutation(api.partnerQuotes.addDesignFiles);
 
   const {
-    register, handleSubmit, watch, setValue,
+    register, handleSubmit, watch, setValue, control,
     formState: { errors }, trigger,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      signType: "logo_image", neonMaterial: "led_flex_neon",
-      installation: "indoors", backShape: "cut_to_shape",
-      backColor: "transparent", quantity: 1,
+      signType: "Logo/Image", hasImage: true,
+      useType: "Business", installation: "Indoors (no waterproof)",
+      neonMaterial: "LED Flex Neon", backColor: "Transparent",
+      backShape: "Cut to Shape", signColors: [],
+      quantity: 1, rushOrder: false, rgbLighting: false,
+      knowMeasurements: false, isForClient: false, isCustomFont: false,
     },
   });
 
   const w = watch();
-  const estimate = partner ? estimatePrice(w, partner.discount_pct) : { list: 0, partner: 0 };
 
   async function nextStep() {
-    const valid = await trigger(STEP_FIELDS[step]);
-    if (valid) setStep((s) => Math.min(s + 1, 4));
+    const valid = await trigger(STEP_FIELDS[step] as any);
+    if (valid) setStep((s) => Math.min(s + 1, 3));
+  }
+
+  function toggleColor(color: string) {
+    const current = w.signColors ?? [];
+    if (current.includes(color)) {
+      setValue("signColors", current.filter((c) => c !== color));
+    } else {
+      setValue("signColors", [...current, color]);
+    }
   }
 
   async function uploadDesignFiles(quoteId: string) {
     if (!files.length) return;
-    // Use Convex file storage (same as nsd-custom-quotes)
     const uploaded: { name: string; url: string }[] = [];
     for (const { file } of files) {
-      // Get upload URL from Convex storage
-      const uploadUrl = await convex.mutation(api.quotes.generateUploadUrl as any, {});
-      const res = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      const { storageId } = await res.json();
-      // Get public URL
-      const url = await convex.query(api.quotes.getFileUrl as any, { storageId });
-      if (url) uploaded.push({ name: file.name, url });
+      try {
+        const uploadUrl = await convex.mutation(api.quoteUploads?.generateUploadUrl as any ?? "quoteUploads:generateUploadUrl" as any, {});
+        const res = await fetch(uploadUrl, {
+          method: "POST", headers: { "Content-Type": file.type }, body: file,
+        });
+        const { storageId } = await res.json();
+        const url = await convex.query(api.quoteUploads?.getFileUrl as any ?? "quoteUploads:getFileUrl" as any, { storageId });
+        if (url) uploaded.push({ name: file.name, url });
+      } catch (e) { console.warn("File upload failed:", e); }
     }
-    if (uploaded.length) {
-      await addDesignFiles({ quote_id: quoteId as any, files: uploaded });
-    }
+    if (uploaded.length) await addDesignFiles({ quote_id: quoteId as any, files: uploaded });
   }
 
   const onSubmit = async (data: FormData) => {
     if (!partner) return;
     setSubmitting(true);
     setSubmitError(null);
-
     try {
-      // Build signColors array from the free-text description
-      const signColorsArray = data.signColors
-        .split(",").map((s) => s.trim()).filter(Boolean);
-
       const result = await submitQuote({
         partner_id:      partner._id as any,
         partner_company: partner.company_name,
         partner_tier:    partner.tier,
         discount_pct:    partner.discount_pct,
-
         projectDetails: {
-          signType:      data.signType === "logo_image" ? "Logo/Image" : "Text Only",
-          neonMaterial:  data.neonMaterial,
-          installation:  data.installation,
-          backColor:     data.backColor,
-          backShape:     data.backShape,
-          signColors:    signColorsArray,
-          maxSize:       data.maxSize,
-          width:         data.width,
-          length:        data.length,
-          fontChoice:    "default",
-          signText:      data.signText ?? "",
-          hasImage:      data.signType === "logo_image",
-          quantity:      data.quantity ?? 1,
-          useType:       data.installation,
-          additionalNotes: data.additionalNotes,
-          rgbLighting:   data.rgbLighting,
-          rushOrder:     data.rushOrder,
-          waterproofing: data.waterproofing,
+          signType:              data.signType,
+          neonMaterial:          data.neonMaterial,
+          installation:          data.installation,
+          backColor:             data.backColor,
+          backShape:             data.backShape,
+          signColors:            data.signColors,
+          maxSize:               data.maxSize,
+          width:                 data.width,
+          length:                data.length,
+          fontChoice:            data.fontChoice || "Default",
+          signText:              data.signText || "",
+          hasImage:              data.hasImage,
+          quantity:              data.quantity ?? 1,
+          useType:               data.useType,
+          additionalNotes:       [
+            data.additionalNotes,
+            data.clientNotes,
+            data.multiColorDescription ? `Colors: ${data.multiColorDescription}` : null,
+            data.estimatedBudget ? `Budget: ${data.estimatedBudget}` : null,
+            data.industry ? `Industry: ${data.industry}` : null,
+          ].filter(Boolean).join("\n"),
+          rgbLighting:           data.rgbLighting,
+          rushOrder:             data.rushOrder,
+          multiColorDescription: data.multiColorDescription,
         },
-
         clientInfo: {
-          firstName:   data.clientFirstName || partner.contact_name.split(" ")[0],
-          lastName:    data.clientLastName  || partner.contact_name.split(" ").slice(1).join(" ") || ".",
-          email:       data.clientEmail    || partner.email,
-          phone:       data.clientPhone    || "",
-          companyName: data.clientCompany,
-          street1:     "TBD",
-          city:        "TBD",
-          state:       "TBD",
-          zip:         "00000",
-          country:     "US",
+          firstName:   partner.contact_name.split(" ")[0],
+          lastName:    partner.contact_name.split(" ").slice(1).join(" ") || ".",
+          email:       partner.email,
+          phone:       "",
+          companyName: data.isForClient ? data.clientName : partner.company_name,
+          street1: "TBD", city: "TBD", state: "TBD", zip: "00000", country: "US",
         },
-
-        list_price_cents:    estimate.list * 100,
-        partner_price_cents: estimate.partner * 100,
+        list_price_cents:    0,
+        partner_price_cents: 0,
       });
-
-      // Upload files to Convex storage
       await uploadDesignFiles(result.quoteId);
-
       navigate(`/quotes/${result.quoteId}?submitted=true`);
     } catch (err: any) {
       setSubmitError(err.message ?? "Something went wrong. Please try again.");
@@ -245,27 +254,15 @@ export function NewQuotePage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-
-      {/* Discount banner */}
+      {/* Partner banner */}
       <div className="mb-5 flex items-center gap-3 bg-purple-50 border border-purple-100 rounded-xl px-4 py-3">
         <span className="text-nsd-purple">✦</span>
         <div className="flex-1">
           <p className="text-[13px] font-medium text-nsd-purple">
-            Your {partner.discount_pct}% partner discount will be applied automatically.
+            {partner.discount_pct}% partner discount applied · NSD will confirm pricing after review
           </p>
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            Submitting as {partner.company_name} · Sign Partner
-          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">{partner.company_name} · {partner.tier} partner</p>
         </div>
-        {estimate.list > 0 && (
-          <div className="text-right">
-            <p className="text-[11px] text-gray-400">Estimated</p>
-            <p className="font-display font-bold text-[15px] text-gray-900">${estimate.partner}</p>
-            <p className="text-[10px] text-green-600">
-              Save ${estimate.list - estimate.partner}
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Step indicator */}
@@ -281,13 +278,13 @@ export function NewQuotePage() {
               )}>
                 {step > s.id ? <CheckCircle size={14} /> : s.id}
               </div>
-              <span className={cn(
-                "text-[12px] font-medium hidden sm:block whitespace-nowrap",
-                step === s.id ? "text-nsd-purple" : "text-gray-400"
-              )}>{s.label}</span>
+              <span className={cn("text-[12px] font-medium hidden sm:block",
+                step === s.id ? "text-nsd-purple" : "text-gray-400")}>
+                {s.label}
+              </span>
             </div>
             {i < STEPS.length - 1 && (
-              <div className={cn("flex-1 h-px mx-2", step > s.id ? "bg-nsd-purple" : "bg-gray-200")} />
+              <div className={cn("flex-1 h-px mx-3", step > s.id ? "bg-nsd-purple" : "bg-gray-200")} />
             )}
           </React.Fragment>
         ))}
@@ -296,202 +293,242 @@ export function NewQuotePage() {
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="bg-white border border-gray-100 rounded-xl p-6 space-y-5">
 
-          {/* ── Step 1: Sign type & design ── */}
+          {/* ── Step 1: Project ── */}
           {step === 1 && (<>
-            <h3 className="font-display font-semibold text-[14px] text-gray-900">Sign type & design</h3>
+            <div>
+              <h3 className="font-display font-semibold text-[15px] text-gray-900">Project</h3>
+              <p className="text-[12px] text-nsd-purple mt-0.5">Tell us about your project.</p>
+            </div>
 
-            <Field label="What type of sign?" required error={errors.signType?.message}>
-              <RadioGroup
-                value={w.signType}
-                onChange={(v) => setValue("signType", v)}
-                options={[
-                  { value: "logo_image", label: "Logo / Image", sub: "Upload a design file" },
-                  { value: "text_only",  label: "Text only",    sub: "Type out the sign text" },
-                ]}
-              />
-            </Field>
-
-            {w.signType === "text_only" && (
-              <Field label="Sign text" required>
-                <input {...register("signText")} placeholder='e.g. "Open" or "Good Vibes Only"' className={INPUT} />
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="What kind of sign are you looking for?" required error={errors.signType?.message}>
+                <select {...register("signType")} className={INPUT}>
+                  <option value="Logo/Image">Logo / Image</option>
+                  <option value="Text Only">Text Only</option>
+                </select>
               </Field>
-            )}
 
-            <Field label="Neon material" required error={errors.neonMaterial?.message}>
-              <RadioGroup
-                value={w.neonMaterial}
-                onChange={(v) => setValue("neonMaterial", v)}
-                cols={3}
-                options={[
-                  { value: "led_flex_neon",    label: "LED Flex Neon",    sub: "Most popular" },
-                  { value: "led_flex_neon_uv", label: "LED Flex + UV",    sub: "UV reactive" },
-                  { value: "channel_letter",   label: "Channel Letter",   sub: "3D letters" },
-                ]}
-              />
-            </Field>
+              <Field label="What will you use this sign for?" required error={errors.useType?.message}>
+                <select {...register("useType")} className={INPUT}>
+                  {USE_TYPES.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </Field>
+            </div>
 
-            <Field label="Upload design file" hint="(optional — PDF, AI, PNG, JPG, SVG, EPS)">
-              <FileDropzone files={files} onChange={setFiles} />
-            </Field>
-          </>)}
-
-          {/* ── Step 2: Size & shape ── */}
-          {step === 2 && (<>
-            <h3 className="font-display font-semibold text-[14px] text-gray-900">Size & shape</h3>
-
-            <Field label="Installation" required error={errors.installation?.message}>
-              <RadioGroup
-                value={w.installation}
-                onChange={(v) => setValue("installation", v)}
-                options={[
-                  { value: "indoors",  label: "Indoors" },
-                  { value: "outdoors", label: "Outdoors" },
-                ]}
-              />
-            </Field>
-
-            <Field label="Back shape" required error={errors.backShape?.message}>
-              <RadioGroup
-                value={w.backShape}
-                onChange={(v) => setValue("backShape", v)}
-                options={[
-                  { value: "cut_to_shape",      label: "Cut-to-shape" },
-                  { value: "cut_to_circle",      label: "Cut-to-circle" },
-                  { value: "cut_to_square_rect", label: "Square / Rectangular" },
-                  { value: "cut_to_lettering",   label: "Cut-to-lettering" },
-                ]}
-              />
-            </Field>
-
-            <Field label="Max size" required error={errors.maxSize?.message}
-              hint="— longest dimension in inches">
-              <RadioGroup
-                value={w.maxSize ?? ""}
-                onChange={(v) => setValue("maxSize", v)}
-                cols={4}
-                options={[
-                  { value: "12",  label: '12"' },
-                  { value: "18",  label: '18"' },
-                  { value: "24",  label: '24"' },
-                  { value: "36",  label: '36"' },
-                  { value: "48",  label: '48"' },
-                  { value: "60",  label: '60"' },
-                  { value: "72",  label: '72"' },
-                  { value: "custom", label: "Custom" },
-                ]}
-              />
-            </Field>
-
-            {w.maxSize === "custom" && (
+            {w.useType === "Business" && (
               <div className="grid grid-cols-2 gap-4">
-                <Field label='Width (inches)'>
-                  <input {...register("width")} placeholder='e.g. 38' className={INPUT} />
+                <Field label="Company Name" hint="(optional)">
+                  <input {...register("clientCompany")} placeholder="e.g. Salon Luxe" className={INPUT} />
                 </Field>
-                <Field label='Height (inches)'>
-                  <input {...register("length")} placeholder='e.g. 20' className={INPUT} />
+                <Field label="What industry is your business in?">
+                  <input {...register("industry")} placeholder="e.g. Restaurant, Retail..." className={INPUT} />
                 </Field>
               </div>
             )}
+
+            {w.signType === "Text Only" && (
+              <Field label="Sign text">
+                <input {...register("signText")} placeholder='e.g. "Good Vibes Only"' className={INPUT} />
+              </Field>
+            )}
+
+            <Field label="Will you be providing an image of your logo or design?" required>
+              <YesNo value={w.hasImage} onChange={(v) => setValue("hasImage", v)} />
+            </Field>
+
+            {w.hasImage && (
+              <Field label="Upload Design Files" hint="PNG, JPG, PDF, AI, SVG, EPS · Max 50MB">
+                <FileDropzone files={files} onChange={setFiles} />
+              </Field>
+            )}
+
+            <Field label="Estimated Budget" hint="(optional)">
+              <select {...register("estimatedBudget")} className={INPUT}>
+                <option value="">Select estimated budget...</option>
+                {BUDGETS.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </Field>
           </>)}
 
-          {/* ── Step 3: Colors & finish ── */}
-          {step === 3 && (<>
-            <h3 className="font-display font-semibold text-[14px] text-gray-900">Colors & finish</h3>
+          {/* ── Step 2: Specs ── */}
+          {step === 2 && (<>
+            <div>
+              <h3 className="font-display font-semibold text-[15px] text-gray-900">Specs</h3>
+              <p className="text-[12px] text-nsd-purple mt-0.5">Customize your neon sign details.</p>
+            </div>
 
-            <Field label="Back color" required error={errors.backColor?.message}>
-              <RadioGroup
-                value={w.backColor ?? ""}
-                onChange={(v) => setValue("backColor", v)}
-                cols={3}
-                options={[
-                  { value: "transparent", label: "Transparent" },
-                  { value: "black",       label: "Black" },
-                  { value: "white",       label: "White" },
-                  { value: "custom",      label: "Custom" },
-                ]}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Installation Type" required error={errors.installation?.message}>
+                <select {...register("installation")} className={INPUT}>
+                  <option value="Indoors (no waterproof)">Indoors (no waterproof)</option>
+                  <option value="Outdoors (waterproof)">Outdoors (waterproof)</option>
+                </select>
+              </Field>
+
+              <Field label="Maximum Size" required error={errors.maxSize?.message}>
+                <select {...register("maxSize")} className={INPUT}>
+                  <option value="">Select maximum size...</option>
+                  {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </Field>
+            </div>
+
+            <Field label="Have your measurements?">
+              <div className="flex items-center gap-3">
+                <YesNo value={w.knowMeasurements} onChange={(v) => setValue("knowMeasurements", v)} />
+              </div>
             </Field>
 
-            <Field label="Sign colors" required error={errors.signColors?.message}
-              hint="— describe each color or Pantone code">
-              <textarea
-                {...register("signColors")}
-                rows={2}
-                placeholder="e.g. Purple (Pantone 266C), white outline — or: warm white"
-                className={`${INPUT} resize-none`}
-              />
+            {w.knowMeasurements && (
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Height (inches)">
+                  <input {...register("length")} placeholder="e.g. 20" className={INPUT} />
+                </Field>
+                <Field label="Width (inches)">
+                  <input {...register("width")} placeholder="e.g. 38" className={INPUT} />
+                </Field>
+              </div>
+            )}
+
+            <Field label="Neon Material" required error={errors.neonMaterial?.message}>
+              <div className="grid grid-cols-3 gap-2">
+                {MATERIALS.map((m) => (
+                  <button key={m.value} type="button"
+                    onClick={() => setValue("neonMaterial", m.value)}
+                    className={cn("p-3 rounded-lg border text-left transition-all",
+                      w.neonMaterial === m.value
+                        ? "border-nsd-purple bg-purple-50"
+                        : "border-gray-200 hover:border-nsd-purple/40")}>
+                    <p className="text-[13px] font-medium text-gray-800">{m.value}</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{m.sub}</p>
+                  </button>
+                ))}
+              </div>
             </Field>
 
-            <div className="grid grid-cols-3 gap-3">
+            <Field label="Back Color" required error={errors.backColor?.message}>
+              <div className="grid grid-cols-4 gap-2">
+                {BACK_COLORS.map((c) => (
+                  <button key={c.value} type="button"
+                    onClick={() => setValue("backColor", c.value)}
+                    className={cn("flex flex-col items-center gap-2 p-3 rounded-lg border transition-all",
+                      w.backColor === c.value ? "border-nsd-purple bg-purple-50" : "border-gray-200 hover:border-nsd-purple/40")}>
+                    <div className={cn("w-8 h-8 rounded-full", c.color)} />
+                    <span className="text-[11px] text-gray-600">{c.value}</span>
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="Back Shape" required error={errors.backShape?.message}>
+              <div className="grid grid-cols-4 gap-2">
+                {BACK_SHAPES.map((s) => (
+                  <button key={s.value} type="button"
+                    onClick={() => setValue("backShape", s.value)}
+                    className={cn("flex flex-col items-center gap-2 p-3 rounded-lg border transition-all",
+                      w.backShape === s.value ? "border-nsd-purple bg-purple-50" : "border-gray-200 hover:border-nsd-purple/40")}>
+                    <span className="text-2xl">{s.icon}</span>
+                    <span className="text-[11px] text-gray-600 text-center leading-tight">{s.value}</span>
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="Sign Colors (select all that apply)" required error={(errors.signColors as any)?.message}>
+              <div className="flex flex-wrap gap-2">
+                {SIGN_COLORS.map((c) => (
+                  <button key={c.label} type="button"
+                    onClick={() => toggleColor(c.label)}
+                    className={cn(
+                      "px-4 py-1.5 rounded-full text-[12px] font-medium transition-all",
+                      c.bg, c.text,
+                      w.signColors?.includes(c.label)
+                        ? "ring-2 ring-nsd-purple ring-offset-1 scale-105"
+                        : "opacity-70 hover:opacity-100"
+                    )}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            {w.signColors?.length > 1 && (
+              <Field label="Multi-Color Description" hint="— describe arrangement or Pantone codes">
+                <textarea {...register("multiColorDescription")} rows={2}
+                  placeholder="e.g. Purple main text, white outline, pink background glow"
+                  className={`${INPUT} resize-none`} />
+              </Field>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Font of Choice">
+                <select {...register("fontChoice")} className={INPUT}>
+                  {FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </Field>
               <Field label="Quantity">
                 <input {...register("quantity")} type="number" min={1} className={INPUT} />
               </Field>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 pt-1">
-              {[
-                { name: "rgbLighting" as const, label: "RGB lighting" },
-                { name: "rushOrder"   as const, label: "Rush order" },
-                { name: "waterproofing" as const, label: "Waterproofing" },
-              ].map(({ name, label }) => (
-                <label key={name} className="flex items-center gap-2.5 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-nsd-purple/40 transition-all">
-                  <input {...register(name)} type="checkbox" className="accent-nsd-purple w-4 h-4" />
-                  <span className="text-[13px] text-gray-600">{label}</span>
-                </label>
-              ))}
+            <div className="space-y-2">
+              <p className="text-[12px] font-medium text-gray-600">Add-ons</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { name: "rushOrder" as const,  label: "Rush Order", sub: "+$100 · 7–10 business days" },
+                  { name: "rgbLighting" as const, label: "RGB Lighting", sub: "+$100 · remote control" },
+                ].map(({ name, label, sub }) => (
+                  <label key={name}
+                    className={cn("flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all",
+                      w[name] ? "border-nsd-purple bg-purple-50" : "border-gray-200 hover:border-nsd-purple/40")}>
+                    <input {...register(name)} type="checkbox" className="accent-nsd-purple mt-0.5" />
+                    <div>
+                      <p className="text-[13px] font-medium text-gray-800">{label}</p>
+                      <p className="text-[11px] text-gray-400">{sub}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
+
+            <Field label="Additional Notes" hint="(optional)">
+              <textarea {...register("additionalNotes")} rows={3}
+                placeholder="Power type, mounting preference, special requirements..."
+                className={`${INPUT} resize-none`} />
+            </Field>
           </>)}
 
-          {/* ── Step 4: Client info & notes ── */}
-          {step === 4 && (<>
-            <h3 className="font-display font-semibold text-[14px] text-gray-900">Client & notes</h3>
-            <p className="text-[12px] text-gray-400 -mt-3">
-              End-client details are for your internal records only — NSD will white-label all communications.
-            </p>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Client first name">
-                <input {...register("clientFirstName")} placeholder="Jane" className={INPUT} />
-              </Field>
-              <Field label="Client last name">
-                <input {...register("clientLastName")} placeholder="Smith" className={INPUT} />
-              </Field>
-              <Field label="Client email">
-                <input {...register("clientEmail")} type="email" placeholder="client@example.com" className={INPUT} />
-              </Field>
-              <Field label="Client phone">
-                <input {...register("clientPhone")} placeholder="(555) 000-0000" className={INPUT} />
-              </Field>
-              <Field label="Client company" hint="(optional)">
-                <input {...register("clientCompany")} placeholder="Salon Luxe" className={INPUT} />
-              </Field>
+          {/* ── Step 3: End Client ── */}
+          {step === 3 && (<>
+            <div>
+              <h3 className="font-display font-semibold text-[15px] text-gray-900">Client</h3>
+              <p className="text-[12px] text-nsd-purple mt-0.5">Internal records only — not shared with NSD clients.</p>
             </div>
 
-            <Field label="Additional notes">
-              <textarea
-                {...register("additionalNotes")}
-                rows={4}
-                placeholder="Power type (12V adapter / hardwired), mounting preference, special requirements, reference images…"
-                className={`${INPUT} resize-none`}
-              />
+            {/* Submitting partner's own info is pre-filled */}
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">Submitting as</p>
+              <p className="text-[13px] font-medium text-gray-900">{partner.contact_name}</p>
+              <p className="text-[12px] text-gray-400">{partner.company_name} · {partner.email}</p>
+            </div>
+
+            <Field label="Is this for one of your clients?">
+              <YesNo value={w.isForClient} onChange={(v) => setValue("isForClient", v)} />
             </Field>
 
-            {/* Estimated price summary */}
-            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex items-center gap-4">
-              <div className="flex-1">
-                <p className="text-[12px] text-gray-500 mb-1">Estimated quote total</p>
-                <p className="font-display font-bold text-xl text-gray-900">
-                  ${estimate.partner.toLocaleString()}
-                </p>
-                <p className="text-[11px] text-gray-400 mt-0.5">
-                  List: ${estimate.list.toLocaleString()} · Saving ${(estimate.list - estimate.partner).toLocaleString()} ({partner.discount_pct}% off)
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-[11px] text-gray-400">NSD will confirm final price</p>
-                <p className="text-[11px] text-gray-400">after mockup review</p>
-              </div>
-            </div>
+            {w.isForClient && (
+              <Field label="Client name / company">
+                <input {...register("clientName")}
+                  placeholder="e.g. Salon Luxe or Jane Smith"
+                  className={INPUT} />
+              </Field>
+            )}
+
+            <Field label="Notes for NSD" hint="(optional)">
+              <textarea {...register("clientNotes")} rows={3}
+                placeholder="Any additional context for our team — project background, client preferences, deadline..."
+                className={`${INPUT} resize-none`} />
+            </Field>
 
             {submitError && (
               <p className="text-[12px] text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
@@ -501,7 +538,7 @@ export function NewQuotePage() {
           </>)}
         </div>
 
-        {/* Nav buttons */}
+        {/* Navigation */}
         <div className="flex items-center justify-between mt-4">
           {step > 1 ? (
             <button type="button" onClick={() => setStep((s) => s - 1)}
@@ -510,10 +547,10 @@ export function NewQuotePage() {
             </button>
           ) : <div />}
 
-          {step < 4 ? (
+          {step < 3 ? (
             <button type="button" onClick={nextStep}
               className="flex items-center gap-1.5 bg-nsd-purple text-white text-[13px] font-medium px-5 py-2 rounded-lg hover:bg-purple-700 transition-colors">
-              Continue <ChevronRight size={14} />
+              Next <ChevronRight size={14} />
             </button>
           ) : (
             <button type="submit" disabled={submitting}
