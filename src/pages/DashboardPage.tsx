@@ -3,7 +3,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { FileText, Clock, DollarSign, CheckCircle, ArrowRight } from "lucide-react";
 import { useAuth } from "hooks/useAuth";
-import { useQuotes } from "hooks/useQuotes";
+import { usePartnerStats } from "hooks/useQuotes";
 import { StatusPill } from "components/quotes/StatusPill";
 import { QuoteRequest } from "types";
 
@@ -28,13 +28,14 @@ function StatCard({
 
 export function DashboardPage() {
   const { partner } = useAuth();
-  const { quotes, loading } = useQuotes(partner?.id);
+  const { quotes, loading, inProgress, completed, totalSavedCents, recent } = usePartnerStats();
+  
   const navigate = useNavigate();
 
   const inProgress = quotes.filter((q) =>
-    ["submitted", "awaiting_mockup", "mockup_review", "management_review"].includes(q.status)
+    ["new","pricing","mockup","revision"].includes(q.quote_activity)
   );
-  const completed = quotes.filter((q) => q.status === "completed");
+  const completed = quotes.filter((q) => q.quote_activity === "completed");
   const totalSaved = quotes.reduce((acc, q) => {
     if (q.list_price && q.partner_price) acc += q.list_price - q.partner_price;
     return acc;
@@ -147,14 +148,14 @@ export function DashboardPage() {
                       {new Date(q.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusPill status={q.status} />
+                      <StatusPill status={q.quote_activity} />
                     </td>
                     <td className="px-4 py-3 font-display font-semibold text-gray-900">
-                      {q.partner_price != null ? `$${q.partner_price.toFixed(2)}` : "—"}
+                      {q.total_price_cents != null ? `$${(q.total_price_cents/100).toFixed(2)}` : "—"}
                     </td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => navigate(`/quotes/${q.id}`)}
+                        onClick={() => navigate(`/quotes/${q._id}`)}
                         className="text-[11px] text-gray-400 hover:text-nsd-purple border border-gray-200 hover:border-nsd-purple/30 px-3 py-1 rounded-lg transition-all"
                       >
                         View

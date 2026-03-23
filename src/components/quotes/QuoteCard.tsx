@@ -2,11 +2,11 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { FileImage, Type, ExternalLink } from "lucide-react";
-import { QuoteRequest } from "types";
+import { PartnerQuote, ACTIVITY_LABEL, ACTIVITY_COLOR, ACTIVITY_PROGRESS } from "types";
 import { StatusPill } from "./StatusPill";
 
 interface Props {
-  quote: QuoteRequest;
+  quote: PartnerQuote;
 }
 
 const MATERIAL_LABEL: Record<string, string> = {
@@ -32,8 +32,8 @@ export function QuoteCard({ quote }: Props) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <span className="font-display text-[12px] font-semibold text-nsd-purple">{quote.quote_number}</span>
-          {quote.client_name && (
-            <span className="text-[11px] text-gray-400">· {quote.client_name}</span>
+          {quote.project_info?.customerInfo?.companyName && (
+            <span className="text-[11px] text-gray-400">· {quote.project_info?.customerInfo?.companyName}</span>
           )}
         </div>
         <p className="text-[13px] text-gray-700 font-medium truncate">
@@ -49,7 +49,7 @@ export function QuoteCard({ quote }: Props) {
       </div>
 
       <div className="text-right flex-shrink-0">
-        {quote.partner_price != null && (
+        {quote.total_price_cents != null && (
           <p className="font-display font-semibold text-[15px] text-gray-900">
             ${quote.partner_price.toFixed(2)}
           </p>
@@ -58,12 +58,12 @@ export function QuoteCard({ quote }: Props) {
           <p className="text-[11px] text-green-600 font-medium">−${saved.toFixed(2)} saved</p>
         )}
         <div className="mt-1.5">
-          <StatusPill status={quote.status} showProgress />
+          <StatusPill status={quote.quote_activity} showProgress />
         </div>
       </div>
 
       <button
-        onClick={() => navigate(`/quotes/${quote.id}`)}
+        onClick={() => navigate(`/quotes/${quote._id}`)}
         className="ml-2 p-2 rounded-lg text-gray-300 hover:text-nsd-purple hover:bg-purple-50 transition-all"
       >
         <ExternalLink size={15} />

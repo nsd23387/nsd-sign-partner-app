@@ -1,20 +1,22 @@
 // src/hooks/useAuth.ts
 import { useState, useEffect, createContext, useContext } from "react";
-import { supabase } from "lib/supabase";
+import { convex } from "lib/convex";
 import { Partner } from "types";
 
 interface AuthState {
   partner: Partner | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signOut: () => Promise<void>;
+  signOut: () => void;
 }
+
+const SESSION_KEY = "nsd_partner_session";
 
 export const AuthContext = createContext<AuthState>({
   partner: null,
   loading: true,
   signIn: async () => ({}),
-  signOut: async () => {},
+  signOut: () => {},
 });
 
 export function useAuth() {
@@ -26,39 +28,27 @@ export function useAuthProvider(): AuthState {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) fetchPartner(session.user.id);
-      else setLoading(false);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) fetchPartner(session.user.id);
-      else { setPartner(null); setLoading(false); }
-    });
-
-    return () => listener.subscription.unsubscribe();
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (stored) {
+      try { setPartner(JSON.parse(stored)); } catch { /* ignore */ }
+    }
+    setLoading(false);
   }, []);
 
-  async function fetchPartner(userId: string) {
-    const { data, error } = await supabase
-      .from("partners")
-      .select("*")
-      .eq("auth_user_id", userId)
-      .single();
-
-    if (!error && data) setPartner(data as Partner);
-    setLoading(false);
-  }
-
   async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
-    return {};
+    try {
+      const result = await convex.action("partners:signIn" as any, { email, password }) as any;
+      if (!result.success) return { error: result.error };
+      setPartner(result.partner);
+      localStorage.setItem(SESSION_KEY, JSON.stringify(result.partner));
+      return {};
+    } catch (err: any) {
+      return { error: err.message ?? "Sign in failed" };
+    }
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
+  function signOut() {
+    localStorage.removeItem(SESSION_KEY);
     setPartner(null);
   }
 

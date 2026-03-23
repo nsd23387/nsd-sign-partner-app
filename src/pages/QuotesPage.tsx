@@ -2,13 +2,13 @@
 import React, { useState } from "react";
 import { FileText } from "lucide-react";
 import { useAuth } from "hooks/useAuth";
-import { useQuotes } from "hooks/useQuotes";
+import { usePartnerQuotes } from "hooks/useQuotes";
 import { QuoteCard } from "components/quotes/QuoteCard";
-import { QuoteStatus } from "types";
+import { QuoteActivity } from "types";
 import { cn } from "lib/utils";
 import { useNavigate } from "react-router-dom";
 
-const FILTERS: { label: string; statuses: QuoteStatus[] | null }[] = [
+const FILTERS: { label: string; statuses: QuoteActivity[] | null }[] = [
   { label: "All",         statuses: null },
   { label: "In progress", statuses: ["submitted", "awaiting_mockup", "mockup_review", "management_review"] },
   { label: "Approved",    statuses: ["approved", "sent_to_client"] },
@@ -18,12 +18,12 @@ const FILTERS: { label: string; statuses: QuoteStatus[] | null }[] = [
 
 export function QuotesPage() {
   const { partner } = useAuth();
-  const { quotes, loading } = useQuotes(partner?.id);
+  const { quotes, loading } = usePartnerQuotes();
   const [activeFilter, setActiveFilter] = useState(0);
   const navigate = useNavigate();
 
   const filtered = FILTERS[activeFilter].statuses
-    ? quotes.filter((q) => FILTERS[activeFilter].statuses!.includes(q.status))
+    ? quotes.filter((q) => FILTERS[activeFilter].statuses!.includes(q.quote_activity))
     : quotes;
 
   return (
@@ -32,7 +32,7 @@ export function QuotesPage() {
       <div className="flex items-center gap-2 flex-wrap">
         {FILTERS.map((f, i) => {
           const count = f.statuses
-            ? quotes.filter((q) => f.statuses!.includes(q.status)).length
+            ? quotes.filter((q) => f.statuses!.includes(q.quote_activity)).length
             : quotes.length;
           return (
             <button

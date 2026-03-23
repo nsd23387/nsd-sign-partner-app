@@ -1,118 +1,139 @@
 # NSD Sign Partner Portal
 
 A white-labeled portal for sign companies, agencies, and event partners to submit
-neon sign quote requests directly to NSD — feeding seamlessly into the existing
-quote management system with automatic `sign_partner` tagging.
+neon sign quote requests directly into NSD's **existing Convex quote system** —
+with no duplication, no separate database, and no change to existing automations.
+
+---
+
+## Architecture
+
+```
+Partner Portal (this app)          NSD Custom Quotes (existing app)
+┌─────────────────────────┐        ┌──────────────────────────────┐
+│  React frontend          │        │  React frontend (admin)       │
+│  - Login / Dashboard     │        │  - Quote management           │
+│  - Quote request form    │        │  - Mockup upload              │
+│  - Quote status tracker  │        │  - Pricing + approval         │
+└────────────┬────────────┘        └──────────────┬───────────────┘
+             │  Convex SDK                         │  Convex SDK
+             └──────────────────┬──────────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │    Convex Backend        │
+                    │   (nsd-custom-quotes)    │
+                    │                          │
+                    │  quotes table            │
+                    │  partners table (new)    │
+                    │  Trello automation       │
+                    │  Resend emails           │
+                    │  Stripe payments         │
+                    └──────────────────────────┘
+```
+
+Partner quotes land in the **same** `quotes` table as all other NSD quotes.
+They are identified by `quote_type: "sign_partner"` and
+`campaign_info.campaign_param: <partner_id>`.
+All existing Trello, email, pricing, and mockup automations fire identically.
 
 ---
 
 ## Stack
 
-| Layer       | Tech                                      |
-|-------------|-------------------------------------------|
-| Frontend    | React 18 + TypeScript + Tailwind CSS      |
-| Auth & DB   | Supabase (Postgres + Auth + Storage)      |
-| Forms       | React Hook Form + Zod                     |
-| Routing     | React Router v6                           |
-| Icons       | Lucide React                              |
-| NSD bridge  | Webhook POST → existing quote system      |
+| Layer    | Tech                                       |
+|----------|--------------------------------------------|
+| Frontend | React 18 + TypeScript + Tailwind CSS       |
+| Backend  | Convex (shared with nsd-custom-quotes)     |
+| Auth     | Convex partners table + localStorage token |
+| Forms    | React Hook Form + Zod                      |
+| Routing  | React Router v6                            |
 
 ---
 
-## Local setup
+## Setup
+
+### 1. Add to nsd-custom-quotes Convex backend
+
+Copy these files into your `nsd-custom-quotes/convex/` folder:
+- `convex/partners.ts` — partner auth, CRUD, reactive quote query
+- `convex/partnerQuotes.ts` — quote submission mutation
+
+Add the `partners` table to `nsd-custom-quotes/convex/schema.ts`
+(see `convex/schema_partner_addition.ts` for the exact snippet to add).
+
+Deploy the backend:
+```bash
+cd nsd-custom-quotes
+npx convex deploy
+```
+
+### 2. Configure this app
 
 ```bash
-# 1. Clone
-git clone https://github.com/nsd23387/nsd-sign-partner-app.git
-cd nsd-sign-partner-app
-
-# 2. Install
-npm install
-
-# 3. Configure environment
 cp .env.example .env
-# Fill in REACT_APP_SUPABASE_URL, REACT_APP_SUPABASE_ANON_KEY, REACT_APP_NSD_WEBHOOK_URL
+# Set REACT_APP_CONVEX_URL to the same URL as nsd-custom-quotes
+```
 
-# 4. Run
+Find your Convex URL: nsd-custom-quotes Convex dashboard → Settings → URL.
+
+### 3. Install and run
+
+```bash
+npm install
 npm start
 ```
 
 ---
 
-## Supabase setup
+## Two mutations to add to nsd-custom-quotes
 
-1. Create a project at https://supabase.com
-2. Go to **SQL Editor** and run the full contents of `supabase-schema.sql`
-3. Go to **Storage** → create a bucket named `design-files` (set to public)
-4. Copy your project URL and anon key into `.env`
+The admin quote detail page calls two mutations that may not exist yet in your
+existing `convex/quotes.ts`. Add these if missing:
 
-### Creating a partner account manually (first partner)
+```typescript
+// In convex/quotes.ts
 
-```sql
--- 1. Create auth user in Supabase Dashboard > Auth > Users
--- 2. Then insert partner row:
-insert into public.partners (auth_user_id, company_name, contact_name, email, partner_type, tier, discount_pct, portal_slug)
-values (
-  '<auth-user-uuid-from-step-1>',
-  'Signarama Greenville',
-  'Candace Lahr',
-  'candace@signarama-greenville.com',
-  'sign_shop',
-  'silver',
-  20,
-  'signarama-greenville'
-);
+export const updateQuoteActivity = mutation({
+  args: { id: v.id("quotes"), activity: v.string() },
+  handler: async (ctx, { id, activity }) => {
+    await ctx.db.patch(id, { quote_activity: activity, updated_at: Date.now() });
+  },
+});
+
+export const updatePrice = mutation({
+  args: {
+    id: v.id("quotes"),
+    list_price_cents: v.float64(),
+    partner_price_cents: v.float64(),
+  },
+  handler: async (ctx, { id, list_price_cents, partner_price_cents }) => {
+    await ctx.db.patch(id, {
+      total_price_cents: partner_price_cents,
+      "project_info.projectDetails.manualOverridePriceCents": list_price_cents,
+      "project_info.projectDetails.manualPriceCents": partner_price_cents,
+      updated_at: Date.now(),
+    });
+  },
+});
+
+export const getById = query({
+  args: { id: v.id("quotes") },
+  handler: async (ctx, { id }) => ctx.db.get(id),
+});
 ```
-
----
-
-## NSD webhook
-
-Every quote submitted through the portal fires a POST to `REACT_APP_NSD_WEBHOOK_URL`
-with this payload shape:
-
-```json
-{
-  "source": "partner_portal",
-  "partner_tag": "sign_partner",
-  "partner_id": "...",
-  "partner_company": "Signarama Greenville",
-  "partner_tier": "silver",
-  "discount_pct": 20,
-  "quote": {
-    "sign_type": "logo_image",
-    "material": "led_flex_neon",
-    "installation_type": "indoors",
-    "width_inches": 38,
-    "height_inches": 38,
-    "back_color": "black",
-    "back_shape": "cut_to_circle",
-    "sign_colors": "Purple (Pantone 266C)",
-    "quantity": 1,
-    "additional_notes": "...",
-    "client_name": "Salon Luxe",
-    "client_email": "...",
-    ...
-  }
-}
-```
-
-Your existing system just needs to accept this POST and create the quote as normal —
-the `partner_tag: "sign_partner"` field triggers the existing sign-partner flow
-(Trello card, Zoho Books quote, separate approval path, etc.).
 
 ---
 
 ## Partner tiers
 
-| Tier     | Discount | Unlock at      |
-|----------|----------|----------------|
-| Silver   | 20%      | Default        |
-| Gold     | 25%      | 14 orders      |
-| Platinum | 30%      | 30 orders      |
+| Tier     | Discount | Orders to unlock |
+|----------|----------|-----------------|
+| Silver   | 20%      | Default         |
+| Gold     | 25%      | 14 completed    |
+| Platinum | 30%      | 30 completed    |
 
-Update a partner's tier manually in Supabase, or automate via a Supabase
-Edge Function that watches the `quotes` table and promotes on completion count.
+Auto-promotion is handled by `checkAndPromoteTier` in `convex/partners.ts`.
+Call it from your existing quote completion flow in `nsd-custom-quotes`.
 
 ---
 
@@ -120,19 +141,18 @@ Edge Function that watches the `quotes` table and promotes on completion count.
 
 ```bash
 npm run build
-# Deploy /build to Netlify, Vercel, or any static host
-# Set environment variables in your host's dashboard
+# Deploy /build to Vercel, Netlify, or any static host
+# Set REACT_APP_CONVEX_URL in host environment variables
 ```
 
-Recommended URL structure: `partners.neonsignsdepot.com`
+Recommended URL: `partners.neonsignsdepot.com`
 
 ---
 
-## Roadmap / next steps
+## Roadmap
 
-- [ ] NSD Admin dashboard (manage all partner accounts + inbound quotes)
-- [ ] Automated tier promotion via Supabase Edge Function
-- [ ] Email notifications to partner on status changes
-- [ ] Partner onboarding / self-signup flow
-- [ ] Mockup preview viewer inside quote detail page
-- [ ] Zoho Books integration for sign-partner quote generation
+- [ ] Swap localStorage auth token for Convex Auth (convex-auth package)
+- [ ] Partner self-signup / onboarding flow
+- [ ] Mockup approval from partner portal
+- [ ] Zoho Books quote generation for sign partners on approval
+- [ ] Email notifications on quote_activity changes (extend existing Resend setup)

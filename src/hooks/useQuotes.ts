@@ -1,28 +1,39 @@
 // src/hooks/useQuotes.ts
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "lib/supabase";
-import { QuoteRequest } from "types";
+// Uses Convex useQuery — reactive, real-time, no polling needed.
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+import { useAuth } from "./useAuth";
 
-export function useQuotes(partnerId: string | undefined) {
-  const [quotes, setQuotes] = useState<QuoteRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function usePartnerQuotes() {
+  const { partner } = useAuth();
+  // Reactive query — automatically re-renders when any quote for this partner changes
+  const quotes = useQuery(
+    api.partners.getPartnerQuotes,
+    partner ? { partner_id: partner._id as any } : "skip"
+  );
+  return { quotes: quotes ?? [], loading: quotes === undefined };
+}
 
-  const fetchQuotes = useCallback(async () => {
-    if (!partnerId) return;
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("quotes")
-      .select("*, design_files(*)")
-      .eq("partner_id", partnerId)
-      .order("submitted_at", { ascending: false });
+export function usePartnerStats() {
+  const { quotes, loading } = usePartnerQuotes();
 
-    if (error) setError(error.message);
-    else setQuotes((data as QuoteRequest[]) || []);
-    setLoading(false);
-  }, [partnerId]);
+  const inProgress = quotes.filter((q) =>
+    ["new", "pricing", "mockup", "revision"].includes(q.quote_activity)
+  );
+  const completed = quotes.filter((q) => q.quote_activity === "delivered");
 
-  useEffect(() => { fetchQuotes(); }, [fetchQuotes]);
+  const totalSavedCents = quotes.reduce((acc, q) => {
+    const list = q.project_info?.projectDetails?.manualOverridePriceCents ?? 0;
+    const partner = q.total_price_cents ?? 0;
+    return acc + Math.max(0, list - partner);
+  }, 0);
 
-  return { quotes, loading, error, refetch: fetchQuotes };
+  return {
+    loading,
+    totalQuotes:    quotes.length,
+    inProgress:     inProgress.length,
+    completed:      completed.length,
+    totalSavedCents,
+    recent:         quotes.slice(0, 5),
+  };
 }
