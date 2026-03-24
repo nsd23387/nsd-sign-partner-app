@@ -18,6 +18,7 @@ import type * as actions_followup from "../actions/followup.js";
 import type * as actions_gmailSimple from "../actions/gmailSimple.js";
 import type * as actions_gmailTest from "../actions/gmailTest.js";
 import type * as actions_gmailWorking from "../actions/gmailWorking.js";
+import type * as actions_ingestMockupToMediaIntelligence from "../actions/ingestMockupToMediaIntelligence.js";
 import type * as actions_maintenance from "../actions/maintenance.js";
 import type * as actions_mockup from "../actions/mockup.js";
 import type * as actions_odsEvents from "../actions/odsEvents.js";
@@ -126,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   "actions/gmailSimple": typeof actions_gmailSimple;
   "actions/gmailTest": typeof actions_gmailTest;
   "actions/gmailWorking": typeof actions_gmailWorking;
+  "actions/ingestMockupToMediaIntelligence": typeof actions_ingestMockupToMediaIntelligence;
   "actions/maintenance": typeof actions_maintenance;
   "actions/mockup": typeof actions_mockup;
   "actions/odsEvents": typeof actions_odsEvents;
