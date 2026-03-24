@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useAuth } from "./useAuth";
+import { PartnerQuote } from "../types";
 
 export function usePartnerQuotes() {
   const { partner } = useAuth();
@@ -11,18 +12,20 @@ export function usePartnerQuotes() {
     api.partners.getPartnerQuotes,
     partner ? { partner_id: partner._id as any } : "skip"
   );
-  return { quotes: quotes ?? [], loading: quotes === undefined };
+  return { quotes: (quotes ?? []) as unknown as PartnerQuote[], loading: quotes === undefined };
 }
 
 export function usePartnerStats() {
   const { quotes, loading } = usePartnerQuotes();
 
-  const inProgress = quotes.filter((q) =>
-    ["new", "pricing", "mockup", "revision"].includes(q.quote_activity)
+  const inProgress = quotes.filter((q: PartnerQuote) =>
+    ["Quote Submitted", "Awaiting Deposit", "Deposit Paid", "Pending Management Review",
+     "Admin Review Changes Requested", "Mockups In Review", "Awaiting Response",
+     "Revisions Requested", "Revisions Adjusted"].includes(q.quote_activity)
   );
-  const completed = quotes.filter((q) => q.quote_activity === "delivered");
+  const completed = quotes.filter((q: PartnerQuote) => q.quote_activity === "Delivered");
 
-  const totalSavedCents = quotes.reduce((acc, q) => {
+  const totalSavedCents = quotes.reduce((acc: number, q: PartnerQuote) => {
     const list = q.project_info?.projectDetails?.manualOverridePriceCents ?? 0;
     const partner = q.total_price_cents ?? 0;
     return acc + Math.max(0, list - partner);
@@ -30,9 +33,10 @@ export function usePartnerStats() {
 
   return {
     loading,
+    quotes,              // raw array — used by DashboardPage for totalSaved
     totalQuotes:    quotes.length,
-    inProgress:     inProgress.length,
-    completed:      completed.length,
+    inProgress,          // array so callers can use .length
+    completed,           // array so callers can use .length
     totalSavedCents,
     recent:         quotes.slice(0, 5),
   };

@@ -7,37 +7,38 @@ import { ArrowLeft, Download, FileText, CheckCircle, ExternalLink } from "lucide
 import { ACTIVITY_LABEL, ACTIVITY_PROGRESS, ACTIVITY_COLOR } from "types";
 import { cn } from "lib/utils";
 
+const CUSTOMER_PORTAL = "https://customer.neonsignsdepot.com/quote";
+
 const SPEC_DISPLAY = [
-  { key: "signType",      label: "Sign type" },
-  { key: "neonMaterial",  label: "Material" },
-  { key: "installation",  label: "Installation" },
-  { key: "maxSize",       label: "Max size" },
-  { key: "backColor",     label: "Back color" },
-  { key: "backShape",     label: "Back shape" },
-  { key: "quantity",      label: "Quantity" },
+  { key: "signType",     label: "Sign type" },
+  { key: "neonMaterial", label: "Material" },
+  { key: "installation", label: "Installation" },
+  { key: "maxSize",      label: "Max size" },
+  { key: "backColor",    label: "Back color" },
+  { key: "backShape",    label: "Back shape" },
+  { key: "quantity",     label: "Quantity" },
 ];
 
 export function QuoteDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const [params] = useSearchParams();
+  const { id }    = useParams<{ id: string }>();
+  const [params]  = useSearchParams();
   const navigate  = useNavigate();
   const justSubmitted = params.get("submitted") === "true";
 
-  // Reactive — updates in real-time when NSD updates the quote
   const quote = useQuery(
-    api.quotes.getById as any,
+    api.quotes.getByIdPublic as any,
     id ? { id } : "skip"
   ) as any;
 
-  if (quote === undefined) {
-    return <div className="py-12 text-center text-sm text-gray-400">Loading…</div>;
-  }
-  if (!quote) {
-    return <div className="py-12 text-center text-sm text-gray-400">Quote not found.</div>;
-  }
+  if (quote === undefined) return (
+    <div className="py-12 text-center text-sm text-gray-400">Loading…</div>
+  );
+  if (!quote) return (
+    <div className="py-12 text-center text-sm text-gray-400">Quote not found.</div>
+  );
 
   const details   = quote.project_info?.projectDetails ?? {};
-  const activity  = quote.quote_activity ?? "new";
+  const activity  = quote.quote_activity ?? "Quote Submitted";
   const progress  = ACTIVITY_PROGRESS[activity] ?? 10;
   const label     = ACTIVITY_LABEL[activity] ?? activity;
   const colorCls  = ACTIVITY_COLOR[activity] ?? "bg-gray-50 text-gray-500";
@@ -45,8 +46,19 @@ export function QuoteDetailPage() {
   const listCents    = details.manualOverridePriceCents ?? 0;
   const partnerCents = quote.total_price_cents ?? 0;
   const savedCents   = Math.max(0, listCents - partnerCents);
+  const isPriced     = partnerCents > 0;
 
   const mockups = (quote.admin_images ?? []).filter((f: any) => f.isMockup);
+  const customerUrl = quote.public_token
+    ? `${CUSTOMER_PORTAL}/${quote.public_token}`
+    : null;
+
+  // Show "View full quote" button once pricing is set or mockups are ready
+  const showCustomerLink = customerUrl && [
+    "Mockups In Review", "Awaiting Response", "Design Approved",
+    "Quote Approved", "Awaiting Deposit", "Deposit Paid",
+    "Quote Paid", "Delivered",
+  ].includes(activity);
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
@@ -58,7 +70,7 @@ export function QuoteDetailPage() {
           <div>
             <p className="text-[13px] font-medium text-green-700">Quote submitted successfully!</p>
             <p className="text-[11px] text-green-600 mt-0.5">
-              Our team will prepare your mockups shortly. You'll see updates here in real-time.
+              Our team will prepare your mockups and confirm pricing shortly.
             </p>
           </div>
         </div>
@@ -69,7 +81,7 @@ export function QuoteDetailPage() {
         <ArrowLeft size={13} /> Back to quotes
       </button>
 
-      {/* Header card */}
+      {/* Header */}
       <div className="bg-white border border-gray-100 rounded-xl p-5">
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -100,22 +112,29 @@ export function QuoteDetailPage() {
               style={{ width: `${progress}%` }} />
           </div>
         </div>
-
-        {quote.trello_card_url && (
-          <a href={quote.trello_card_url} target="_blank" rel="noreferrer"
-            className="inline-flex items-center gap-1.5 mt-3 text-[11px] text-nsd-purple hover:underline">
-            <ExternalLink size={11} /> View in Trello
-          </a>
-        )}
       </div>
 
-      {/* Pricing */}
-      {partnerCents > 0 && (
+      {/* View full quote CTA — shown once NSD has priced and sent mockups */}
+      {showCustomerLink && (
+        <a href={customerUrl!} target="_blank" rel="noreferrer"
+          className="flex items-center justify-between bg-nsd-navy text-white rounded-xl px-5 py-4 hover:bg-opacity-90 transition-all group">
+          <div>
+            <p className="font-display font-semibold text-[15px]">View full quote & mockups</p>
+            <p className="text-[12px] text-white/60 mt-0.5">
+              Review designs, approve mockups, and pay deposit
+            </p>
+          </div>
+          <ExternalLink size={18} className="text-white/60 group-hover:text-white transition-colors flex-shrink-0" />
+        </a>
+      )}
+
+      {/* Pricing — shown once NSD sets it */}
+      {isPriced && (
         <div className="bg-white border border-gray-100 rounded-xl p-5">
           <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-3">Pricing</p>
-          <div className="flex items-end gap-6">
+          <div className="flex items-end gap-6 flex-wrap">
             <div>
-              <p className="text-[11px] text-gray-400">Your price</p>
+              <p className="text-[11px] text-gray-400">Your partner price</p>
               <p className="font-display font-bold text-2xl text-gray-900">
                 ${(partnerCents / 100).toFixed(2)}
               </p>
@@ -141,23 +160,43 @@ export function QuoteDetailPage() {
         </div>
       )}
 
-      {/* Mockups — shown once NSD uploads them */}
+      {/* Mockup thumbnails — quick preview */}
       {mockups.length > 0 && (
         <div className="bg-white border border-gray-100 rounded-xl p-5">
-          <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-3">Mockups</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Mockups</p>
+            {customerUrl && (
+              <a href={customerUrl} target="_blank" rel="noreferrer"
+                className="text-[11px] text-nsd-purple hover:underline flex items-center gap-1">
+                Review & approve <ExternalLink size={10} />
+              </a>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             {mockups.map((m: any) => (
               <div key={m.fileId} className="relative group">
                 <img src={m.url} alt={m.name}
                   className="w-full h-40 object-cover rounded-lg border border-gray-100" />
-                <a href={m.url} target="_blank" rel="noreferrer"
-                  className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-all rounded-lg">
-                  <Download size={20} className="text-white" />
-                </a>
-                <p className="text-[11px] text-gray-500 mt-1 truncate">{m.name}</p>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-all rounded-lg">
+                  <a href={customerUrl ?? m.url} target="_blank" rel="noreferrer"
+                    className="bg-white text-nsd-navy text-[11px] font-semibold px-3 py-1.5 rounded-lg">
+                    View full quote
+                  </a>
+                </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Pending pricing notice */}
+      {!isPriced && !justSubmitted && (
+        <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+          <p className="text-[13px] font-medium text-amber-700">Pricing pending</p>
+          <p className="text-[11px] text-amber-600 mt-0.5">
+            Our team will review your specs and confirm partner pricing shortly.
+            You'll see the full quote link here once mockups are ready.
+          </p>
         </div>
       )}
 

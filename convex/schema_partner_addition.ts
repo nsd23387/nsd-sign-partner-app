@@ -39,7 +39,7 @@ export const partnersTable = defineTable({
 
   // Tier & pricing
   tier:          v.union(v.literal("silver"), v.literal("gold"), v.literal("platinum")),
-  discount_pct:  v.float64(),  // 20, 25, or 30
+  discount_pct:  v.float64(),  // 15 (base), wholesale tiers: 25, 35, 45
 
   // Status
   is_active:     v.boolean(),

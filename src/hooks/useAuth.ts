@@ -37,7 +37,8 @@ export function useAuthProvider(): AuthState {
 
   async function signIn(email: string, password: string) {
     try {
-      const result = await convex.action("partners:signIn" as any, { email, password }) as any;
+      // signIn is a mutation (not an action) — it needs direct db access
+      const result = await convex.mutation("partners:signIn" as any, { email, password }) as any;
       if (!result.success) return { error: result.error };
       setPartner(result.partner);
       localStorage.setItem(SESSION_KEY, JSON.stringify(result.partner));

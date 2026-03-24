@@ -6,12 +6,6 @@ import { api } from "../convex/_generated/api";
 import { Loader2, CheckCircle } from "lucide-react";
 import { useAuth } from "hooks/useAuth";
 
-const TIER_CONFIG = {
-  silver:   { label: "Silver Partner",   color: "from-gray-400 to-gray-500",   next: "Gold",     nextAt: 14, discount: 20 },
-  gold:     { label: "Gold Partner",     color: "from-amber-400 to-yellow-500", next: "Platinum", nextAt: 30, discount: 25 },
-  platinum: { label: "Platinum Partner", color: "from-cyan-400 to-blue-500",    next: null,       nextAt: 0,  discount: 30 },
-};
-
 export function SettingsPage() {
   const { partner } = useAuth();
   const [saved, setSaved]   = useState(false);
@@ -29,10 +23,6 @@ export function SettingsPage() {
 
   if (!partner) return null;
 
-  const tier = TIER_CONFIG[partner.tier];
-  // Approximate completed orders from localStorage (accurate count lives in Convex)
-  const approxCompleted = 9;
-
   const onSubmit = async (data: any) => {
     setSaving(true);
     await updatePartner({ id: partner._id as any, ...data });
@@ -44,32 +34,25 @@ export function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-5">
 
-      {/* Tier card */}
+      {/* Program & discount card */}
       <div className="bg-white border border-gray-100 rounded-xl p-5">
-        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-4">Partner tier</p>
+        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-4">Partner program</p>
         <div className="flex items-start gap-5">
-          <div className={`bg-gradient-to-br ${tier.color} rounded-xl px-5 py-4 text-white min-w-[160px] flex-shrink-0`}>
-            <p className="text-[10px] opacity-70 uppercase tracking-wider mb-1">Current tier</p>
-            <p className="font-display font-bold text-lg">{tier.label}</p>
-            <p className="text-[11px] opacity-80 mt-1">{tier.discount}% off all orders</p>
+          <div className="bg-gradient-to-br from-nsd-purple to-purple-700 rounded-xl px-5 py-4 text-white min-w-[160px] flex-shrink-0">
+            <p className="text-[10px] opacity-70 uppercase tracking-wider mb-1">Program</p>
+            <p className="font-display font-bold text-lg">NSD Sign Partner</p>
+            <p className="text-[11px] opacity-80 mt-1">15% off eligible custom business signs</p>
           </div>
-          {tier.next && (
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-gray-800 mb-1">
-                Next: {tier.next} Partner
-              </p>
-              <p className="text-[12px] text-gray-400 mb-3">
-                Place {tier.nextAt - approxCompleted} more orders to unlock {tier.discount + 5}% discount
-              </p>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-nsd-purple rounded-full transition-all"
-                  style={{ width: `${Math.min(100, Math.round((approxCompleted / tier.nextAt) * 100))}%` }} />
-              </div>
-              <p className="text-[11px] text-gray-400 mt-1.5">
-                ~{approxCompleted} of {tier.nextAt} orders toward {tier.next}
-              </p>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-gray-800 mb-2">Wholesale pricing tiers</p>
+            <div className="space-y-1.5 text-[12px] text-gray-600">
+              <div className="flex justify-between bg-gray-50 rounded px-3 py-1.5"><span>Tier 1: 25–50 units</span><span className="font-semibold">15% off</span></div>
+              <div className="flex justify-between bg-gray-50 rounded px-3 py-1.5"><span>Tier 2: 51–100 units</span><span className="font-semibold">25% off</span></div>
+              <div className="flex justify-between bg-gray-50 rounded px-3 py-1.5"><span>Tier 3: 101–500 units</span><span className="font-semibold">35% off</span></div>
+              <div className="flex justify-between bg-gray-50 rounded px-3 py-1.5"><span>Tier 4: 500+ units</span><span className="font-semibold">45%+ off</span></div>
             </div>
-          )}
+            <p className="text-[11px] text-gray-400 mt-2">Wholesale pricing applies automatically when you order 25+ units on any quote</p>
+          </div>
         </div>
       </div>
 

@@ -13,7 +13,7 @@ const TIER_STYLES: Record<string, string> = {
   gold:     "bg-amber-50 text-amber-600",
   platinum: "bg-cyan-50 text-cyan-700",
 };
-const DISCOUNT: Record<string, number> = { silver: 20, gold: 25, platinum: 30 };
+const DISCOUNT: Record<string, number> = { silver: 15, gold: 25, platinum: 30 };
 
 function TierSelect({ partner, onUpdate }: { partner: PartnerWithStats; onUpdate: () => void }) {
   const [open, setOpen]     = useState(false);
@@ -81,7 +81,7 @@ export function AdminPartnersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {partners.map((p) => (
+              {(partners as PartnerWithStats[]).map((p) => (
                 <tr key={p._id} className={cn("hover:bg-gray-50 transition-colors", !p.is_active && "opacity-50")}>
                   <td className="px-4 py-3 font-medium text-gray-900">{p.company_name}</td>
                   <td className="px-4 py-3 text-[12px]">

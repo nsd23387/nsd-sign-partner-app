@@ -1,11 +1,11 @@
 // src/pages/DashboardPage.tsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, Clock, DollarSign, CheckCircle, ArrowRight } from "lucide-react";
+import { FileText, ArrowRight } from "lucide-react";
 import { useAuth } from "hooks/useAuth";
 import { usePartnerStats } from "hooks/useQuotes";
 import { StatusPill } from "components/quotes/StatusPill";
-import { QuoteRequest } from "types";
+import { PartnerQuote } from "types";
 
 function StatCard({
   label, value, sub, tag, tagColor,
@@ -28,20 +28,16 @@ function StatCard({
 
 export function DashboardPage() {
   const { partner } = useAuth();
-  const { quotes, loading, inProgress, completed, totalSavedCents, recent } = usePartnerStats();
+  const { quotes, loading, inProgress, completed, recent } = usePartnerStats();
   
   const navigate = useNavigate();
 
-  const inProgress = quotes.filter((q) =>
-    ["new","pricing","mockup","revision"].includes(q.quote_activity)
-  );
-  const completed = quotes.filter((q) => q.quote_activity === "completed");
-  const totalSaved = quotes.reduce((acc, q) => {
-    if (q.list_price && q.partner_price) acc += q.list_price - q.partner_price;
-    return acc;
+  // Compute total saved from nested project_info fields (values are in cents → convert to dollars)
+  const totalSaved = quotes.reduce((acc: number, q: PartnerQuote) => {
+    const list    = q.project_info?.projectDetails?.manualOverridePriceCents ?? 0;
+    const partner = q.total_price_cents ?? 0;
+    return acc + Math.max(0, (list - partner) / 100);
   }, 0);
-
-  const recent = quotes.slice(0, 5);
 
   if (!partner) return null;
 
@@ -83,7 +79,7 @@ export function DashboardPage() {
           label="Total saved"
           value={`$${totalSaved.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
           sub="Partner discount applied"
-          tag={`${partner.discount_pct}% off every order`}
+          tag="15% off every order"
           tagColor="bg-green-50 text-green-600"
         />
         <StatCard
@@ -135,17 +131,19 @@ export function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {recent.map((q) => (
-                  <tr key={q.id} className="hover:bg-gray-50 transition-colors">
+                {recent.map((q: PartnerQuote) => (
+                  <tr key={q._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-display font-semibold text-[12px] text-nsd-purple">
                       {q.quote_number}
                     </td>
                     <td className="px-4 py-3 text-gray-700 max-w-[220px] truncate">
-                      {q.material.replace(/_/g, " ")}
-                      {q.client_name ? ` · ${q.client_name}` : ""}
+                      {(q.project_info?.projectDetails?.neonMaterial ?? "").replace(/_/g, " ")}
+                      {q.project_info?.customerInfo?.firstName
+                        ? ` · ${q.project_info.customerInfo.firstName} ${q.project_info.customerInfo.lastName}`
+                        : ""}
                     </td>
                     <td className="px-4 py-3 text-gray-400 text-[11px]">
-                      {new Date(q.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {new Date(q._creationTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </td>
                     <td className="px-4 py-3">
                       <StatusPill status={q.quote_activity} />

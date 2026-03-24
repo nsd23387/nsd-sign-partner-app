@@ -1,13 +1,14 @@
 // src/pages/NewQuotePage.tsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { CheckCircle, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 import { useAuth } from "hooks/useAuth";
+import { resolvePartnerDiscount, WHOLESALE_TIERS } from "types/index";
 import { FileDropzone } from "components/quotes/FileDropzone";
 import { cn } from "lib/utils";
 import { convex } from "lib/convex";
@@ -142,12 +143,13 @@ export function NewQuotePage() {
   const [files, setFiles]       = useState<{ file: File; preview?: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [wholesaleUnlocked, setWholesaleUnlocked] = useState(false);
 
   const submitQuote    = useMutation(api.partnerQuotes.submitPartnerQuote);
   const addDesignFiles = useMutation(api.partnerQuotes.addDesignFiles);
 
   const {
-    register, handleSubmit, watch, setValue, control,
+    register, handleSubmit, watch, setValue,
     formState: { errors }, trigger,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -259,9 +261,9 @@ export function NewQuotePage() {
         <span className="text-nsd-purple">✦</span>
         <div className="flex-1">
           <p className="text-[13px] font-medium text-nsd-purple">
-            {partner.discount_pct}% partner discount applied · NSD will confirm pricing after review
+            15% off eligible custom business signs as an approved NSD Sign Partner. Orders of 25+ units automatically qualify for wholesale pricing up to 45% off.
           </p>
-          <p className="text-[11px] text-gray-400 mt-0.5">{partner.company_name} · {partner.tier} partner</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">{partner.company_name} · NSD Sign Partner</p>
         </div>
       </div>
 
@@ -467,7 +469,29 @@ export function NewQuotePage() {
                 </select>
               </Field>
               <Field label="Quantity">
-                <input {...register("quantity")} type="number" min={1} className={INPUT} />
+                <input {...register("quantity")} type="number" min={1} className={INPUT}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    if (val >= 25 && !wholesaleUnlocked) setWholesaleUnlocked(true);
+                    register("quantity").onChange(e);
+                  }}
+                />
+                {(() => {
+                  const qty = w.quantity ?? 1;
+                  const discount = resolvePartnerDiscount(qty);
+                  if (wholesaleUnlocked && qty >= 25 && qty <= 50) {
+                    return (
+                      <div className="space-y-1">
+                        {wholesaleUnlocked && <p className="text-[11px] font-medium text-green-600 bg-green-50 border border-green-200 rounded px-2 py-1">Wholesale pricing unlocked!</p>}
+                        <p className="text-[11px] font-medium text-green-600">Tier 1 Wholesale · 15% off</p>
+                      </div>
+                    );
+                  }
+                  if (qty >= 51 && qty <= 100) return <p className="text-[11px] font-medium text-green-600">Tier 2 Wholesale · 25% off</p>;
+                  if (qty >= 101 && qty <= 500) return <p className="text-[11px] font-medium text-green-600">Tier 3 Wholesale · 35% off</p>;
+                  if (qty > 500) return <p className="text-[11px] font-medium text-green-600">Tier 4 Wholesale · 45%+ off</p>;
+                  return <p className="text-[11px] font-medium text-purple-600">15% partner discount applied</p>;
+                })()}
               </Field>
             </div>
 

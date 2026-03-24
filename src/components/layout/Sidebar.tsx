@@ -1,7 +1,7 @@
 // src/components/layout/Sidebar.tsx
-import React from "react";
+import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, PlusCircle, FileText, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, PlusCircle, FileText, Settings, LogOut, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "hooks/useAuth";
 import { cn } from "lib/utils";
 
@@ -12,15 +12,11 @@ const NAV = [
   { to: "/settings",   label: "Settings",             icon: Settings },
 ];
 
-const TIER_COLORS: Record<string, string> = {
-  silver:   "text-gray-300",
-  gold:     "text-amber-400",
-  platinum: "text-cyan-300",
-};
 
 export function Sidebar() {
   const { partner, signOut } = useAuth();
   const navigate = useNavigate();
+  const [showTiers, setShowTiers] = useState(false);
 
   if (!partner) return null;
 
@@ -64,14 +60,30 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Discount + tier */}
+      {/* Discount + wholesale */}
       <div className="p-3 border-t border-white/10 space-y-2">
         <div className="p-3 rounded-lg bg-gradient-to-br from-nsd-purple/30 to-nsd-glow/20 border border-nsd-purple/30">
           <p className="text-[10px] text-white/50 uppercase tracking-wider mb-0.5">Partner discount</p>
           <p className={cn("font-display font-semibold text-xl text-nsd-glow")}>
-            {partner.discount_pct}% off
+            15% off
           </p>
-          <p className="text-[11px] text-white/40 mt-0.5">Applied to all orders</p>
+          <p className="text-[11px] text-white/40 mt-0.5">Orders of 25+ units qualify for wholesale pricing up to 45% off</p>
+
+          <button
+            onClick={() => setShowTiers((o) => !o)}
+            className="flex items-center gap-1 mt-2 text-[10px] text-nsd-glow/80 hover:text-nsd-glow transition-colors"
+          >
+            {showTiers ? "Hide" : "View"} wholesale tiers {showTiers ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          </button>
+
+          {showTiers && (
+            <div className="mt-2 space-y-1 text-[10px] text-white/60">
+              <div className="flex justify-between"><span>Tier 1</span><span>25–50 units · 15%</span></div>
+              <div className="flex justify-between"><span>Tier 2</span><span>51–100 units · 25%</span></div>
+              <div className="flex justify-between"><span>Tier 3</span><span>101–500 units · 35%</span></div>
+              <div className="flex justify-between"><span>Tier 4</span><span>500+ units · 45%+</span></div>
+            </div>
+          )}
         </div>
         <button
           onClick={async () => { await signOut(); navigate("/login"); }}

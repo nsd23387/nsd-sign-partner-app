@@ -10,14 +10,16 @@ import { useNavigate } from "react-router-dom";
 
 const FILTERS: { label: string; statuses: QuoteActivity[] | null }[] = [
   { label: "All",         statuses: null },
-  { label: "In progress", statuses: ["submitted", "awaiting_mockup", "mockup_review", "management_review"] },
-  { label: "Approved",    statuses: ["approved", "sent_to_client"] },
-  { label: "Completed",   statuses: ["completed"] },
-  { label: "Drafts",      statuses: ["draft"] },
+  { label: "In progress", statuses: ["Quote Submitted", "Awaiting Deposit", "Deposit Paid",
+      "Pending Management Review", "Admin Review Changes Requested",
+      "Mockups In Review", "Awaiting Response", "Revisions Requested", "Revisions Adjusted"] },
+  { label: "Approved",    statuses: ["Quote Approved", "Design Approved"] },
+  { label: "Completed",   statuses: ["Quote Paid", "Delivered"] },
+  { label: "Cancelled",   statuses: ["Not Interested"] },
 ];
 
 export function QuotesPage() {
-  const { partner } = useAuth();
+  useAuth(); // ensures auth context is loaded
   const { quotes, loading } = usePartnerQuotes();
   const [activeFilter, setActiveFilter] = useState(0);
   const navigate = useNavigate();
@@ -67,7 +69,7 @@ export function QuotesPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((q) => <QuoteCard key={q.id} quote={q} />)}
+          {filtered.map((q) => <QuoteCard key={q._id} quote={q} />)}
         </div>
       )}
     </div>

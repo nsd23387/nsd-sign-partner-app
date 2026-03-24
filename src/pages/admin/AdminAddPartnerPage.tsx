@@ -14,14 +14,12 @@ const schema = z.object({
   email:         z.string().email("Valid email required"),
   phone:         z.string().optional(),
   partner_type:  z.enum(["sign_shop","event_company","interior_designer","agency","other"]),
-  tier:          z.enum(["silver","gold","platinum"]),
   portal_slug:   z.string().min(1, "Required").regex(/^[a-z0-9-]+$/, "Lowercase, numbers, hyphens only"),
   // Password stored as plain text for now — swap for bcrypt hash in production
   auth_token:    z.string().min(8, "Minimum 8 characters"),
 });
 
 type FormData = z.infer<typeof schema>;
-const DISCOUNT: Record<string, number> = { silver: 20, gold: 25, platinum: 30 };
 const INPUT = "w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-nsd-purple";
 
 export function AdminAddPartnerPage() {
@@ -29,13 +27,11 @@ export function AdminAddPartnerPage() {
   const [error, setError] = useState<string | null>(null);
   const createPartner = useMutation(api.partners.create);
 
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } =
+  const { register, handleSubmit, formState: { errors, isSubmitting } } =
     useForm<FormData>({
       resolver: zodResolver(schema),
-      defaultValues: { partner_type: "sign_shop", tier: "silver" },
+      defaultValues: { partner_type: "sign_shop" },
     });
-
-  const tierVal = watch("tier");
 
   function Field({ name, label, required, children }: {
     name: keyof FormData; label: string; required?: boolean; children: React.ReactNode;
@@ -63,8 +59,8 @@ export function AdminAddPartnerPage() {
         partner_type:  data.partner_type,
         auth_token:    data.auth_token,   // hash this with bcrypt in production
         portal_slug:   data.portal_slug,
-        tier:          data.tier,
-        discount_pct:  DISCOUNT[data.tier],
+        tier:          "silver" as any,
+        discount_pct:  15,
       });
       navigate("/admin/partners");
     } catch (err: any) {
@@ -120,19 +116,10 @@ export function AdminAddPartnerPage() {
           </select>
         </Field>
 
-        <Field name="tier" label="Starting tier" required>
-          <div className="grid grid-cols-3 gap-2">
-            {(["silver","gold","platinum"] as const).map((t) => (
-              <label key={t} className={`flex flex-col items-center p-3 rounded-lg border cursor-pointer transition-all ${
-                tierVal === t ? "border-nsd-purple bg-purple-50" : "border-gray-200 hover:border-nsd-purple/40"
-              }`}>
-                <input {...register("tier")} type="radio" value={t} className="sr-only" />
-                <span className="text-[13px] font-semibold capitalize text-gray-800">{t}</span>
-                <span className="text-[11px] text-gray-400">{DISCOUNT[t]}% off</span>
-              </label>
-            ))}
-          </div>
-        </Field>
+        <div className="bg-purple-50 border border-purple-100 rounded-lg px-4 py-3">
+          <p className="text-[12px] font-medium text-nsd-purple">All partners start at 15% discount</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">Wholesale pricing (up to 45% off) applies automatically on orders of 25+ units</p>
+        </div>
 
         {error && (
           <p className="text-[12px] text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">

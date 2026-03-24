@@ -119,6 +119,22 @@ export const ACTIVITY_COLOR: Record<string, string> = {
   "Not Interested": "bg-red-50 text-red-500",
 };
 
-export const TIER_DISCOUNT: Record<PartnerTier, number> = {
-  silver: 20, gold: 25, platinum: 30,
-};
+export const WHOLESALE_TIERS = [
+  { tier: 1, min: 25,  max: 50,   discount: 15, label: "Tier 1 Wholesale" },
+  { tier: 2, min: 51,  max: 100,  discount: 25, label: "Tier 2 Wholesale" },
+  { tier: 3, min: 101, max: 500,  discount: 35, label: "Tier 3 Wholesale" },
+  { tier: 4, min: 500, max: null, discount: 45, label: "Tier 4 Wholesale" },
+];
+
+export function resolvePartnerDiscount(qty: number): number {
+  if (qty >= 500) return 45;
+  if (qty >= 101) return 35;
+  if (qty >= 51)  return 25;
+  return 15;
+}
+
+// Alias used by some pages before the type was renamed to PartnerQuote
+export type QuoteRequest = PartnerQuote;
+
+// Loose status type used by admin filter pages
+export type QuoteStatus = string;

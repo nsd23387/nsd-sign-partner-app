@@ -64,8 +64,8 @@ export function AdminQuoteDetailPage() {
     const n = parseFloat(val);
     // Auto-compute partner price from partner's discount
     if (!isNaN(n)) {
-      // Get discount from campaign_info or default 20%
-      const disc = 20; // TODO: look up partner discount from partner record
+      // Get discount from campaign_info or default 15%
+      const disc = 15; // TODO: look up partner discount from partner record
       setPartnerPrice((n * (1 - disc / 100)).toFixed(2));
     }
   }

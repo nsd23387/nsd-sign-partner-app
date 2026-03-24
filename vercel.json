@@ -6,9 +6,7 @@
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "env": {
-    "REACT_APP_SUPABASE_URL":    "@nsd_supabase_url",
-    "REACT_APP_SUPABASE_ANON_KEY": "@nsd_supabase_anon_key",
-    "REACT_APP_NSD_WEBHOOK_URL": "@nsd_webhook_url",
-    "REACT_APP_APP_URL":         "@nsd_app_url"
+    "REACT_APP_CONVEX_URL": "https://hearty-heron-902.convex.cloud",
+    "REACT_APP_APP_URL":    "https://partners.neonsignsdepot.com"
   }
 }

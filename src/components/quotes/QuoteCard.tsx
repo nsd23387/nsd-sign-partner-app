@@ -17,14 +17,31 @@ const MATERIAL_LABEL: Record<string, string> = {
 
 export function QuoteCard({ quote }: Props) {
   const navigate = useNavigate();
-  const saved = quote.list_price && quote.partner_price
-    ? quote.list_price - quote.partner_price
+
+  // Derive display values from nested project_info structure
+  const details  = quote.project_info?.projectDetails;
+  const customer = quote.project_info?.customerInfo;
+  const material   = details?.neonMaterial ?? "";
+  const signType   = details?.signType ?? "";
+  const width      = details?.width;
+  const height     = details?.length;  // "length" maps to the height dimension in the schema
+  const signColors = details?.signColors?.join(", ") ?? "";
+  const submittedAt = quote._creationTime;
+
+  // Partner price is total_price_cents; list price is manualOverridePriceCents
+  const partnerPriceDollars = (quote.total_price_cents ?? 0) / 100;
+  const listPriceDollars    = (details?.manualOverridePriceCents ?? 0) / 100;
+  const saved = listPriceDollars > 0 && listPriceDollars > partnerPriceDollars
+    ? listPriceDollars - partnerPriceDollars
     : null;
+
+  // Suppress unused import warnings — these are used indirectly via StatusPill
+  void ACTIVITY_LABEL; void ACTIVITY_COLOR; void ACTIVITY_PROGRESS;
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-4 flex items-center gap-4 hover:border-nsd-purple/30 transition-colors">
       <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
-        {quote.sign_type === "logo_image"
+        {signType === "logo_image"
           ? <FileImage size={18} className="text-nsd-purple" />
           : <Type size={18} className="text-nsd-purple" />}
       </div>
@@ -32,26 +49,24 @@ export function QuoteCard({ quote }: Props) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <span className="font-display text-[12px] font-semibold text-nsd-purple">{quote.quote_number}</span>
-          {quote.project_info?.customerInfo?.companyName && (
-            <span className="text-[11px] text-gray-400">· {quote.project_info?.customerInfo?.companyName}</span>
+          {customer?.companyName && (
+            <span className="text-[11px] text-gray-400">· {customer.companyName}</span>
           )}
         </div>
         <p className="text-[13px] text-gray-700 font-medium truncate">
-          {MATERIAL_LABEL[quote.material]}
-          {quote.width_inches && quote.height_inches
-            ? ` · ${quote.width_inches}"×${quote.height_inches}"`
-            : ""}
-          {quote.sign_colors ? ` · ${quote.sign_colors}` : ""}
+          {MATERIAL_LABEL[material] ?? material.replace(/_/g, " ")}
+          {width && height ? ` · ${width}"×${height}"` : ""}
+          {signColors ? ` · ${signColors}` : ""}
         </p>
         <p className="text-[11px] text-gray-400 mt-0.5">
-          Submitted {new Date(quote.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          Submitted {new Date(submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
         </p>
       </div>
 
       <div className="text-right flex-shrink-0">
         {quote.total_price_cents != null && (
           <p className="font-display font-semibold text-[15px] text-gray-900">
-            ${quote.partner_price.toFixed(2)}
+            ${partnerPriceDollars.toFixed(2)}
           </p>
         )}
         {saved != null && saved > 0 && (
