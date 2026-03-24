@@ -59,7 +59,7 @@ export function AdminAddPartnerPage() {
         partner_type:  data.partner_type,
         auth_token:    data.auth_token,   // hash this with bcrypt in production
         portal_slug:   data.portal_slug,
-        tier:          "silver" as any,
+        tier:          "partner" as any,
         discount_pct:  15,
       });
       navigate("/admin/partners");

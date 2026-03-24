@@ -8,19 +8,12 @@ import { cn } from "lib/utils";
 
 const FILTERS: { label: string; status?: QuoteStatus }[] = [
   { label: "All" },
-  { label: "Submitted",      status: "submitted" },
-  { label: "Awaiting mockup",status: "awaiting_mockup" },
-  { label: "Mockup review",  status: "mockup_review" },
-  { label: "Mgmt review",    status: "management_review" },
-  { label: "Approved",       status: "approved" },
-  { label: "Completed",      status: "completed" },
+  { label: "Submitted",            status: "Quote Submitted" },
+  { label: "Mockups In Review",    status: "Mockups In Review" },
+  { label: "Pending Review",       status: "Pending Management Review" },
+  { label: "Design Approved",      status: "Design Approved" },
+  { label: "Delivered",            status: "Delivered" },
 ];
-
-const TIER_BADGE: Record<string, string> = {
-  silver:   "bg-gray-100 text-gray-500",
-  gold:     "bg-amber-50 text-amber-600",
-  platinum: "bg-cyan-50 text-cyan-600",
-};
 
 export function AdminQuotesPage() {
   const [filterIdx, setFilterIdx] = useState(0);
@@ -54,7 +47,7 @@ export function AdminQuotesPage() {
           <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {["Quote #", "Partner", "Tier", "Sign type / Material", "Size", "Submitted", "Status", "Price", ""].map((h) => (
+                {["Quote #", "Partner", "Program", "Sign type / Material", "Size", "Submitted", "Status", "Price", ""].map((h) => (
                   <th key={h} className="text-left px-4 py-2.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -76,8 +69,8 @@ export function AdminQuotesPage() {
                     {q.partner_company}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize", TIER_BADGE[q.partner_tier])}>
-                      {q.partner_tier}
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-nsd-purple">
+                      Sign Partner
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-600 max-w-[160px] truncate capitalize">

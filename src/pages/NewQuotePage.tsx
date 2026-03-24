@@ -8,7 +8,7 @@ import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { CheckCircle, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 import { useAuth } from "hooks/useAuth";
-import { resolvePartnerDiscount, WHOLESALE_TIERS } from "types/index";
+import { WHOLESALE_TIERS } from "types/index";
 import { FileDropzone } from "components/quotes/FileDropzone";
 import { cn } from "lib/utils";
 import { convex } from "lib/convex";
@@ -204,7 +204,7 @@ export function NewQuotePage() {
       const result = await submitQuote({
         partner_id:      partner._id as any,
         partner_company: partner.company_name,
-        partner_tier:    partner.tier,
+        partner_tier:    "partner",
         discount_pct:    partner.discount_pct,
         projectDetails: {
           signType:              data.signType,
@@ -478,18 +478,15 @@ export function NewQuotePage() {
                 />
                 {(() => {
                   const qty = w.quantity ?? 1;
-                  const discount = resolvePartnerDiscount(qty);
-                  if (wholesaleUnlocked && qty >= 25 && qty <= 50) {
+                  const tier = WHOLESALE_TIERS.find((t) => qty >= t.min && (t.max === null || qty <= t.max));
+                  if (tier) {
                     return (
                       <div className="space-y-1">
-                        {wholesaleUnlocked && <p className="text-[11px] font-medium text-green-600 bg-green-50 border border-green-200 rounded px-2 py-1">Wholesale pricing unlocked!</p>}
-                        <p className="text-[11px] font-medium text-green-600">Tier 1 Wholesale · 15% off</p>
+                        {wholesaleUnlocked && qty >= 25 && qty <= 50 && <p className="text-[11px] font-medium text-green-600 bg-green-50 border border-green-200 rounded px-2 py-1">Wholesale pricing unlocked!</p>}
+                        <p className="text-[11px] font-medium text-green-600">{tier.label} · {tier.discount}%{tier.max === null ? "+" : ""} off</p>
                       </div>
                     );
                   }
-                  if (qty >= 51 && qty <= 100) return <p className="text-[11px] font-medium text-green-600">Tier 2 Wholesale · 25% off</p>;
-                  if (qty >= 101 && qty <= 500) return <p className="text-[11px] font-medium text-green-600">Tier 3 Wholesale · 35% off</p>;
-                  if (qty > 500) return <p className="text-[11px] font-medium text-green-600">Tier 4 Wholesale · 45%+ off</p>;
                   return <p className="text-[11px] font-medium text-purple-600">15% partner discount applied</p>;
                 })()}
               </Field>

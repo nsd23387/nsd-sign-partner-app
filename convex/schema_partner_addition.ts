@@ -38,7 +38,7 @@ export const partnersTable = defineTable({
   portal_slug:   v.string(),   // e.g. "signarama-greenville"
 
   // Tier & pricing
-  tier:          v.union(v.literal("silver"), v.literal("gold"), v.literal("platinum")),
+  tier:          v.optional(v.string()),  // "partner" — kept optional for backwards compat
   discount_pct:  v.float64(),  // 15 (base), wholesale tiers: 25, 35, 45
 
   // Status

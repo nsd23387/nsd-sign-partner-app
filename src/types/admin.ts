@@ -1,6 +1,6 @@
 // src/types/admin.ts
 
-import { Partner, PartnerQuote, PartnerTier } from "./index";
+import { Partner, PartnerQuote } from "./index";
 
 export interface AdminStats {
   total_partners: number;
@@ -21,6 +21,6 @@ export interface PartnerWithStats extends Partner {
 
 export interface AdminQuoteRow extends PartnerQuote {
   partner_company: string;
-  partner_tier: PartnerTier;
+  partner_tier: string;
   partner_discount_pct: number;
 }

@@ -1,4 +1,4 @@
-export type PartnerTier = "silver" | "gold" | "platinum";
+export type PartnerTier = "partner";
 export type PartnerType = "sign_shop" | "event_company" | "interior_designer" | "agency" | "other";
 
 export interface Partner {

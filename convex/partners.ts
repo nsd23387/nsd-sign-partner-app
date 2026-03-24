@@ -105,7 +105,7 @@ export const create = mutation({
     ),
     auth_token:    v.string(),
     portal_slug:   v.string(),
-    tier:          v.union(v.literal("silver"), v.literal("gold"), v.literal("platinum")),
+    tier:          v.optional(v.string()),
     discount_pct:  v.float64(),
   },
   handler: async (ctx, args) => {
@@ -117,6 +117,7 @@ export const create = mutation({
 
     return ctx.db.insert("partners", {
       ...args,
+      tier: args.tier ?? "partner",
       is_active:  true,
       created_at: Date.now(),
       updated_at: Date.now(),
@@ -134,7 +135,7 @@ export const update = mutation({
       v.literal("sign_shop"), v.literal("event_company"),
       v.literal("interior_designer"), v.literal("agency"), v.literal("other")
     )),
-    tier:          v.optional(v.union(v.literal("silver"), v.literal("gold"), v.literal("platinum"))),
+    tier:          v.optional(v.string()),
     discount_pct:  v.optional(v.float64()),
     is_active:     v.optional(v.boolean()),
   },
@@ -143,41 +144,13 @@ export const update = mutation({
   },
 });
 
-// ── Auto tier promotion ───────────────────────────────────────────────────────
-// Call this from your existing quote completion mutation in quotes.ts
-// when quote_type === "sign_partner"
+// ── Tier promotion (deprecated) ───────────────────────────────────────────────
+// Wholesale pricing is now based on per-order quantity, not cumulative orders.
+// This function is kept as a no-op stub to avoid breaking any existing callers.
 
 export const checkAndPromoteTier = mutation({
   args: { partner_id: v.id("partners") },
-  handler: async (ctx, { partner_id }) => {
-    const completedCount = await ctx.db
-      .query("quotes")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("quote_type"), "sign_partner"),
-          q.eq(q.field("campaign_info.campaign_param"), partner_id),
-          q.eq(q.field("quote_activity"), "delivered")  // match your existing delivered status
-        )
-      )
-      .collect()
-      .then((r) => r.length);
-
-    const partner = await ctx.db.get(partner_id);
-    if (!partner) return;
-
-    let newTier = partner.tier;
-    let newDiscount = partner.discount_pct;
-
-    if (completedCount >= 30 && partner.tier !== "platinum") {
-      newTier = "platinum"; newDiscount = 30;
-    } else if (completedCount >= 14 && partner.tier === "silver") {
-      newTier = "gold"; newDiscount = 25;
-    }
-
-    if (newTier !== partner.tier) {
-      await ctx.db.patch(partner_id, {
-        tier: newTier, discount_pct: newDiscount, updated_at: Date.now(),
-      });
-    }
+  handler: async (_ctx, _args) => {
+    // No-op: wholesale tiers are resolved per-order by quantity
   },
 });

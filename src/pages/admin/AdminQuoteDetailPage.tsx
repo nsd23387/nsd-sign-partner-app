@@ -41,11 +41,11 @@ export function AdminQuoteDetailPage() {
   const [priceSaved, setPriceSaved]       = useState(false);
 
   // Reactive — updates in real-time via Convex websocket
-  const quote = useQuery(api.quotes.getById as any, id ? { id } : "skip") as any;
+  const quote = useQuery(api.quotes.getByIdPublic as any, id ? { id } : "skip") as any;
 
   // Use your existing quotes mutation to update status + price
   const updateQuote = useMutation(api.quotes.updateQuoteActivity as any);
-  const updatePrice = useMutation(api.quotes.updatePrice as any);
+  const updatePrice = useMutation(api.quotes.updatePartnerPrice as any);
 
   if (quote === undefined) return <div className="py-12 text-center text-sm text-gray-400">Loading…</div>;
   if (!quote) return <div className="py-12 text-center text-sm text-gray-400">Quote not found.</div>;

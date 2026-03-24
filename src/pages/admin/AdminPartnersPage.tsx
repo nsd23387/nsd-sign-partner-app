@@ -6,46 +6,7 @@ import { api } from "../../convex/_generated/api";
 import { useAdminPartners } from "hooks/useAdmin";
 import { PartnerWithStats } from "types/admin";
 import { cn } from "lib/utils";
-import { Check, X, ChevronDown } from "lucide-react";
-
-const TIER_STYLES: Record<string, string> = {
-  silver:   "bg-gray-100 text-gray-600",
-  gold:     "bg-amber-50 text-amber-600",
-  platinum: "bg-cyan-50 text-cyan-700",
-};
-const DISCOUNT: Record<string, number> = { silver: 15, gold: 25, platinum: 30 };
-
-function TierSelect({ partner, onUpdate }: { partner: PartnerWithStats; onUpdate: () => void }) {
-  const [open, setOpen]     = useState(false);
-  const [saving, setSaving] = useState(false);
-  const updatePartner = useMutation(api.partners.update);
-
-  async function select(tier: string) {
-    setSaving(true); setOpen(false);
-    await updatePartner({ id: partner._id as any, tier: tier as any, discount_pct: DISCOUNT[tier] });
-    setSaving(false); onUpdate();
-  }
-
-  return (
-    <div className="relative">
-      <button onClick={() => setOpen((o) => !o)} disabled={saving}
-        className={cn("flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize transition-all", TIER_STYLES[partner.tier])}>
-        {saving ? "…" : partner.tier} <ChevronDown size={10} />
-      </button>
-      {open && (
-        <div className="absolute z-10 top-full left-0 mt-1 bg-white border border-gray-100 rounded-lg shadow-lg py-1 min-w-[150px]">
-          {["silver","gold","platinum"].map((t) => (
-            <button key={t} onClick={() => select(t)}
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-gray-700 hover:bg-gray-50 transition-colors capitalize">
-              {partner.tier === t ? <Check size={11} className="text-nsd-purple" /> : <span className="w-3" />}
-              {t} ({DISCOUNT[t]}%)
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import { Check, X } from "lucide-react";
 
 export function AdminPartnersPage() {
   const { partners, loading } = useAdminPartners();
@@ -75,7 +36,7 @@ export function AdminPartnersPage() {
           <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {["Company","Contact","Type","Tier","Quotes","Completed","Spend","Last activity","Status",""].map((h) => (
+                {["Company","Contact","Type","Program","Quotes","Completed","Spend","Last activity","Status",""].map((h) => (
                   <th key={h} className="text-left px-4 py-2.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -89,7 +50,11 @@ export function AdminPartnersPage() {
                     <div className="text-gray-400">{p.email}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-500 capitalize text-[12px]">{p.partner_type.replace(/_/g," ")}</td>
-                  <td className="px-4 py-3"><TierSelect partner={p} onUpdate={() => forceUpdate((n) => n + 1)} /></td>
+                  <td className="px-4 py-3">
+                    <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-nsd-purple">
+                      Sign Partner
+                    </span>
+                  </td>
                   <td className="px-4 py-3 font-display font-semibold text-gray-900">{p.total_quotes}</td>
                   <td className="px-4 py-3 font-display font-semibold text-green-600">{p.completed_orders}</td>
                   <td className="px-4 py-3 font-display font-semibold text-gray-900 whitespace-nowrap">

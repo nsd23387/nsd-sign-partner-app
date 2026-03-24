@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { LayoutDashboard, PlusCircle, FileText, Settings, LogOut, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "hooks/useAuth";
+import { WHOLESALE_TIERS } from "types/index";
 import { cn } from "lib/utils";
 
 const NAV = [
@@ -78,10 +79,12 @@ export function Sidebar() {
 
           {showTiers && (
             <div className="mt-2 space-y-1 text-[10px] text-white/60">
-              <div className="flex justify-between"><span>Tier 1</span><span>25–50 units · 15%</span></div>
-              <div className="flex justify-between"><span>Tier 2</span><span>51–100 units · 25%</span></div>
-              <div className="flex justify-between"><span>Tier 3</span><span>101–500 units · 35%</span></div>
-              <div className="flex justify-between"><span>Tier 4</span><span>500+ units · 45%+</span></div>
+              {WHOLESALE_TIERS.map((t) => (
+                <div key={t.tier} className="flex justify-between">
+                  <span>Tier {t.tier}</span>
+                  <span>{t.min}–{t.max ?? "∞"} units · {t.discount}%{t.max === null ? "+" : ""}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>

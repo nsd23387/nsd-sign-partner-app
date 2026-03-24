@@ -112,11 +112,8 @@ export const submitPartnerQuote = mutation({
         },
         projectDetails: {
           ...args.projectDetails,
-          // Store discount info in additionalNotes if no dedicated field
-          additionalNotes: [
-            args.projectDetails.additionalNotes,
-            `[PARTNER: ${args.partner_company} | ${args.discount_pct}% discount | Tier: ${args.partner_tier}]`,
-          ].filter(Boolean).join("\n"),
+          useType: "Business",
+          additionalNotes: args.projectDetails.additionalNotes,
           manualPriceCents:         args.partner_price_cents,
           manualOverridePriceCents: args.list_price_cents,
         },

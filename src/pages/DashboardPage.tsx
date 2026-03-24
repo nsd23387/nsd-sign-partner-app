@@ -65,7 +65,7 @@ export function DashboardPage() {
           label="Total quotes"
           value={String(quotes.length)}
           sub="All time"
-          tag={`${partner.tier.charAt(0).toUpperCase() + partner.tier.slice(1)} tier`}
+          tag="Sign Partner"
           tagColor="bg-purple-50 text-nsd-purple"
         />
         <StatCard
